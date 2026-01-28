@@ -1,0 +1,23 @@
+{
+  "channels": {
+    "dingtalk": {
+      "enabled": true,
+      "appKey": "dingxxxxxxxxxxxxxxxx",
+      "appSecret": "xxxxxxxxxxxxxxxxxxxxxxxx",
+      "agentId": "123456789",
+      "streamEndpoint": "wss://connect-api.dingtalk.com/stream",
+      "groupPolicy": "allowlist",
+      "groupAllowFrom": [
+        "cidxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      ],
+      "dm": {
+        "enabled": true,
+        "allowFrom": [
+          "$:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        ]
+      },
+      "heartbeatInterval": 30000,
+      "reconnectInterval": 5000
+    }
+  }
+}

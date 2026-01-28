@@ -1,0 +1,47 @@
+{
+  "name": "@clawdbot/channel-dingtalk",
+  "version": "1.0.0",
+  "description": "DingTalk Stream mode channel plugin for Clawdbot - 无需公网IP，通过长连接实时接收钉钉消息",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "clawdbot": {
+    "type": "channel",
+    "id": "dingtalk"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepack": "npm run build"
+  },
+  "keywords": [
+    "clawdbot",
+    "channel",
+    "dingtalk",
+    "stream",
+    "webhook",
+    "钉钉",
+    "ai"
+  ],
+  "author": "小龙虾助手 <clawdbot@example.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@alicloud/dingtalk": "^2.0.0",
+    "ws": "^8.14.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/ws": "^8.5.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/clawdbot/channel-dingtalk"
+  },
+  "bugs": {
+    "url": "https://github.com/clawdbot/channel-dingtalk/issues"
+  },
+  "homepage": "https://github.com/clawdbot/channel-dingtalk#readme"
+}
