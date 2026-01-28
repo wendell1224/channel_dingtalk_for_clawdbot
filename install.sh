@@ -1,82 +1,87 @@
 #!/bin/bash
-#
-# 钉钉 Stream 通道插件安装脚本
-# 用于将插件安装到 Clawdbot 的 extensions 目录
-#
+# Clawdbot DingTalk Stream 通道插件安装脚本
 
 set -e
 
-# 颜色输出
+echo "================================================"
+echo "  Clawdbot DingTalk Stream 通道插件安装"
+echo "================================================"
+
+# 颜色定义
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}================================================${NC}"
-echo -e "${GREEN}钉钉 Stream 通道插件安装${NC}"
-echo -e "${GREEN}================================================${NC}"
-
-# 检查是否在插件目录
-if [ ! -f "package.json" ] || [ ! -f "index.ts" ]; then
-  echo -e "${RED}错误: 请在插件根目录下运行此脚本${NC}"
-  exit 1
+# 检查是否为 root 用户
+if [ "$EUID" -ne 0 ]; then 
+    echo -e "${RED}错误: 请使用 sudo 运行此脚本${NC}"
+    exit 1
 fi
 
-# 1. 安装依赖
-echo -e "\n${YELLOW}步骤 1/4: 安装依赖...${NC}"
+# 安装目录
+INSTALL_DIR="/usr/lib/node_modules/clawdbot/extensions/dingtalk-stream"
+
+# 1. 检查 Clawdbot 是否已安装
+echo -e "${YELLOW}[1/5] 检查 Clawdbot 安装...${NC}"
+if ! command -v clawdbot &> /dev/null; then
+    echo -e "${RED}错误: 未找到 clawdbot 命令，请先安装 Clawdbot${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✓ Clawdbot 已安装${NC}"
+
+# 2. 安装依赖
+echo -e "${YELLOW}[2/5] 安装依赖...${NC}"
 npm install
+echo -e "${GREEN}✓ 依赖安装完成${NC}"
 
-# 2. 编译 TypeScript（可选，因为 Clawdbot 会直接加载 .ts 文件）
-echo -e "\n${YELLOW}步骤 2/4: 编译 TypeScript...${NC}"
+# 3. 构建项目
+echo -e "${YELLOW}[3/5] 构建项目...${NC}"
 npm run build
+if [ ! -d "dist" ]; then
+    echo -e "${RED}错误: 构建失败，未生成 dist 目录${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✓ 项目构建完成${NC}"
 
-# 3. 复制到 Clawdbot extensions 目录
-CLAWDBOT_EXTENSIONS="/usr/lib/node_modules/clawdbot/extensions/dingtalk"
-
-echo -e "\n${YELLOW}步骤 3/4: 复制插件文件到 ${CLAWDBOT_EXTENSIONS}...${NC}"
-
-# 创建目标目录
-sudo mkdir -p "$CLAWDBOT_EXTENSIONS"
+# 4. 复制文件到 Clawdbot 扩展目录
+echo -e "${YELLOW}[4/5] 安装插件文件...${NC}"
+mkdir -p "$INSTALL_DIR"
 
 # 复制必要文件
-sudo cp -r src "$CLAWDBOT_EXTENSIONS/"
-sudo cp index.ts "$CLAWDBOT_EXTENSIONS/"
-sudo cp clawdbot.plugin.json "$CLAWDBOT_EXTENSIONS/"
-sudo cp package.json "$CLAWDBOT_EXTENSIONS/"
-sudo cp -r node_modules "$CLAWDBOT_EXTENSIONS/"
+cp -r dist "$INSTALL_DIR/"
+cp -r node_modules "$INSTALL_DIR/"
+cp -r src "$INSTALL_DIR/"
+cp package.json "$INSTALL_DIR/"
+cp index.ts "$INSTALL_DIR/"
+cp clawdbot.plugin.json "$INSTALL_DIR/"
 
-# 如果有 dist 目录也复制
-if [ -d "dist" ]; then
-  sudo cp -r dist "$CLAWDBOT_EXTENSIONS/"
+echo -e "${GREEN}✓ 插件文件已安装到 $INSTALL_DIR${NC}"
+
+# 5. 重启 Clawdbot Gateway
+echo -e "${YELLOW}[5/5] 重启 Clawdbot Gateway...${NC}"
+if systemctl is-active --quiet clawdbot-gateway.service; then
+    systemctl restart clawdbot-gateway.service
+    echo -e "${GREEN}✓ Clawdbot Gateway 已重启${NC}"
+else
+    echo -e "${YELLOW}! Clawdbot Gateway 服务未运行，请手动启动${NC}"
 fi
 
-echo -e "${GREEN}✓ 插件文件已复制${NC}"
-
-# 4. 配置说明
-echo -e "\n${YELLOW}步骤 4/4: 配置说明${NC}"
-echo -e "
-请在 ${GREEN}~/.clawdbot/clawdbot.json${NC} 中添加以下配置：
-
-${YELLOW}{${NC}
-  ${YELLOW}\"channels\": {${NC}
-    ${YELLOW}\"dingtalk\": {${NC}
-      ${GREEN}\"enabled\": true,${NC}
-      ${GREEN}\"appKey\": \"your_app_key\",${NC}
-      ${GREEN}\"appSecret\": \"your_app_secret\",${NC}
-      ${GREEN}\"agentId\": \"your_agent_id\",${NC}
-      ${GREEN}\"streamEndpoint\": \"wss://connect-api.dingtalk.com/stream\",${NC}
-      ${GREEN}\"groupPolicy\": \"open\",${NC}
-      ${GREEN}\"dm\": {${NC}
-        ${GREEN}\"enabled\": true,${NC}
-        ${GREEN}\"allowFrom\": [\"*\"]${NC}
-      ${GREEN}}${NC}
-    ${YELLOW}}${NC}
-  ${YELLOW}}${NC}
-${YELLOW}}${NC}
-
-然后运行: ${GREEN}clawdbot gateway restart${NC}
-"
-
-echo -e "${GREEN}================================================${NC}"
-echo -e "${GREEN}✅ 安装完成！${NC}"
-echo -e "${GREEN}================================================${NC}"
+# 完成
+echo ""
+echo "================================================"
+echo -e "${GREEN}  ✅ 安装完成！${NC}"
+echo "================================================"
+echo ""
+echo "下一步："
+echo "  1. 编辑 ~/.clawdbot/clawdbot.json 添加钉钉通道配置"
+echo "  2. 参考 clawdbot.json.example 配置示例"
+echo "  3. 运行 'clawdbot gateway restart' 重启服务"
+echo ""
+echo "查看日志："
+echo "  journalctl -u clawdbot-gateway.service -f"
+echo ""
+echo "详细文档："
+echo "  cat README.md"
+echo "  cat QUICKSTART.md"
+echo ""

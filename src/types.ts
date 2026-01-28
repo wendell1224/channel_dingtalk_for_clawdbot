@@ -1,7 +1,7 @@
 /**
  * 钉钉 Stream 通道类型定义
- *
- * @packageDocumentation
+ * 
+ * 参考 Python 版本的数据结构和配置
  */
 
 /**
@@ -58,9 +58,9 @@ export interface MarkdownMessageContent {
 export interface DingTalkConfig {
   /** 是否启用 */
   enabled: boolean;
-  /** 钉钉 AppKey */
+  /** 钉钉 AppKey (对应 Python 版本的 CLIENT_ID) */
   appKey: string;
-  /** 钉钉 AppSecret */
+  /** 钉钉 AppSecret (对应 Python 版本的 CLIENT_SECRET) */
   appSecret: string;
   /** 钉钉应用 AgentId */
   agentId: string;
@@ -81,6 +81,10 @@ export interface DingTalkConfig {
   heartbeatInterval?: number;
   /** 重连间隔（毫秒） */
   reconnectInterval?: number;
+  /** 流式卡片配置（对应 Python 版本的 CARD_TEMPLATE_ID） */
+  cardTemplateId?: string;
+  /** 卡片内容字段名（对应 Python 版本的 CARD_CONTENT_KEY） */
+  cardContentKey?: string;
 }
 
 /**
@@ -156,30 +160,4 @@ export interface ConnectionStats {
   messagesReceived: number;
   /** 发送的消息数 */
   messagesSent: number;
-}
-
-/**
- * 钉钉通道接口
- */
-export interface DingTalkChannel {
-  /** 通道 ID */
-  id: string;
-  /** 通道名称 */
-  name: string;
-  /** 通道标签 */
-  label: string;
-  /** 启动通道 */
-  start(config: DingTalkConfig, gateway: Gateway): Promise<void>;
-  /** 停止通道 */
-  stop(): Promise<void>;
-  /** 发送消息（简化接口） */
-  sendMessage(chatId: string, text: string, isGroup: boolean): Promise<void>;
-  /** 发送消息（完整接口） */
-  sendMessageWithOptions(chatId: string, text: string, options: SendMessageOptions): Promise<void>;
-  /** 发送 Markdown 消息 */
-  sendMarkdown(chatId: string, title: string, text: string, isGroup: boolean): Promise<void>;
-  /** 发送卡片消息 */
-  sendCard(chatId: string, cardContent: any, isGroup: boolean): Promise<void>;
-  /** 获取连接统计信息 */
-  getStats(): ConnectionStats;
 }

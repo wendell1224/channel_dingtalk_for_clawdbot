@@ -1,82 +1,74 @@
-# Clawdbot 钉钉 Stream 通道插件
+# Clawdbot DingTalk Stream 通道插件
 
-> 通过钉钉 Stream 模式实现长连接，无需公网 IP 即可接收实时消息
+基于钉钉 Stream 模式的 Clawdbot 通道插件，**无需公网 IP**，通过长连接实时接收钉钉消息。
 
-[![npm version](https://badge.fury.io/js/@clawdbot/channel-dingtalk.svg)](https://www.npmjs.com/package/@clawdbot/channel-dingtalk)
-[![License](https://img.shields.io/npm/l/@clawdbot/channel-dingtalk.svg)](LICENSE)
+## ✨ 特性
 
-## 🚀 特性
-
-- ✅ **无需公网 IP** - 内网也能部署
-- ⚡ **长连接实时推送** - 毫秒级响应
-- 🔄 **自动重连** - 断线自动恢复
-- 🎯 **权限控制** - 支持群聊/私聊白名单
-- 💬 **多消息类型** - 文本、Markdown、卡片
-- 📊 **连接统计** - 实时监控连接状态
-- 🛡️ **频率限制** - 防止消息发送过快
+- 🚀 **即插即用** - 符合 Clawdbot Channel Plugin 规范，安装即可使用
+- 🔒 **无需公网 IP** - 使用钉钉 Stream 模式，通过长连接接收消息
+- 💬 **完整消息支持** - 支持文本、Markdown、卡片等多种消息类型
+- 🔄 **自动重连** - 网络断开自动重连，保证服务稳定
+- 🛡️ **权限控制** - 支持群聊白名单、私聊权限管理
+- 📊 **流式响应** - 支持钉钉 AICardReplier 流式卡片（可选）
 
 ## 📦 安装
 
-### 方法一：使用安装脚本（推荐）
+### 方法 1: 使用安装脚本（推荐）
 
 ```bash
-# 克隆仓库
-git clone https://github.com/wendell1224/channel_dingtalk_for_clawdbot.git
-cd channel_dingtalk_for_clawdbot
+# 克隆项目
+git clone https://github.com/your-repo/dingtalk-stream-channel.git
+cd dingtalk-stream-channel
 
 # 运行安装脚本
-bash install.sh
+sudo bash install.sh
 ```
 
-### 方法二：手动安装到 Clawdbot Extensions 目录
+### 方法 2: 手动安装
 
 ```bash
-# 1. 克隆仓库
-git clone https://github.com/wendell1224/channel_dingtalk_for_clawdbot.git
-cd channel_dingtalk_for_clawdbot
-
-# 2. 安装依赖并编译
+# 1. 构建项目
 npm install
 npm run build
 
-# 3. 创建扩展目录
-sudo mkdir -p /usr/lib/node_modules/clawdbot/extensions/dingtalk
+# 2. 复制到 Clawdbot 扩展目录
+sudo mkdir -p /usr/lib/node_modules/clawdbot/extensions/dingtalk-stream
+sudo cp -r dist node_modules package.json index.ts clawdbot.plugin.json \
+  /usr/lib/node_modules/clawdbot/extensions/dingtalk-stream/
 
-# 4. 复制所有必要文件
-sudo cp -r src /usr/lib/node_modules/clawdbot/extensions/dingtalk/
-sudo cp index.ts /usr/lib/node_modules/clawdbot/extensions/dingtalk/
-sudo cp clawdbot.plugin.json /usr/lib/node_modules/clawdbot/extensions/dingtalk/
-sudo cp package.json /usr/lib/node_modules/clawdbot/extensions/dingtalk/
-sudo cp -r node_modules /usr/lib/node_modules/clawdbot/extensions/dingtalk/
+# 3. 重启 Clawdbot Gateway
+clawdbot gateway restart
 ```
-
-### 方法三：使用安装脚本（推荐）
-
-```bash
-chmod +x install.sh
-sudo ./install.sh
-```
-
-安装脚本会自动完成上述所有步骤。
 
 ## ⚙️ 配置
 
-编辑 `~/.clawdbot/clawdbot.json`：
+### 1. 获取钉钉应用凭证
+
+1. 访问 [钉钉开放平台](https://open-dev.dingtalk.com)
+2. 创建或打开你的应用
+3. 获取以下信息：
+   - **AppKey** (Client ID)
+   - **AppSecret** (Client Secret)
+   - **AgentId** (企业内部应用)
+4. 在应用配置中**启用 Stream 模式**
+
+### 2. 配置 Clawdbot
+
+编辑 `~/.clawdbot/clawdbot.json`，添加钉钉通道配置：
 
 ```json
 {
   "channels": {
     "dingtalk": {
       "enabled": true,
-      "appKey": "你的AppKey",
-      "appSecret": "你的AppSecret",
-      "agentId": "你的AgentId",
+      "appKey": "dingxxx...",
+      "appSecret": "your_app_secret",
+      "agentId": "your_agent_id",
       "streamEndpoint": "wss://connect-api.dingtalk.com/stream",
-      "groupPolicy": "allowlist",
-      "groupAllowFrom": ["群OpenConversationId1", "群OpenConversationId2"],
+      "groupPolicy": "open",
       "dm": {
         "enabled": true,
-        "allowFrom": ["用户UserId1", "用户UserId2"]
+        "allowFrom": ["*"]
       },
       "heartbeatInterval": 30000,
       "reconnectInterval": 5000
@@ -85,144 +77,158 @@ sudo ./install.sh
 }
 ```
 
-### 配置说明
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `enabled` | boolean | 是 | 是否启用通道 |
-| `appKey` | string | 是 | 钉钉应用 AppKey |
-| `appSecret` | string | 是 | 钉钉应用 AppSecret |
-| `agentId` | string | 是 | 钉钉应用 AgentId |
-| `streamEndpoint` | string | 否 | Stream 接入地址，默认 `wss://connect-api.dingtalk.com/stream` |
-| `groupPolicy` | string | 是 | 群聊策略：`allowlist`（白名单）或 `open`（开放） |
-| `groupAllowFrom` | string[] | 否 | 允许的群 OpenConversationId 列表 |
-| `dm.enabled` | boolean | 否 | 是否启用私聊 |
-| `dm.allowFrom` | string[] | 否 | 允许私聊的用户 UserId 列表 |
-| `heartbeatInterval` | number | 否 | 心跳间隔（毫秒），默认 30000 |
-| `reconnectInterval` | number | 否 | 重连间隔（毫秒），默认 5000 |
-
-## 🔧 钉钉应用配置
-
-### 1. 创建企业内部应用
-
-登录 [钉钉开放平台](https://open.dingtalk.com/)，创建企业内部应用。
-
-### 2. 获取应用信息
-
-记录以下信息：
-- **AppKey**
-- **AppSecret**
-- **AgentId**
-
-### 3. 配置应用权限
-
-进入「权限管理」，添加以下权限：
-
-| 权限名称 | 权限值 |
-|---------|--------|
-| 通讯录读权限 | `contact:user.base:readonly` |
-| 读取群组信息 | `im:group:readonly` |
-| 发送消息到群聊 | `im:group:msg` |
-| 发送消息到单聊 | `im:chat:msg` |
-
-### 4. 启用 Stream 模式
-
-进入「开发管理」，找到「事件订阅」，选择「Stream 模式」。
-
-## 📝 使用
-
-### 启动 Gateway
+### 3. 重启 Clawdbot
 
 ```bash
 clawdbot gateway restart
 ```
 
-### 查看日志
+## 📖 配置说明
+
+### 基础配置
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `enabled` | boolean | 是 | 是否启用通道 |
+| `appKey` | string | 是 | 钉钉应用的 App Key |
+| `appSecret` | string | 是 | 钉钉应用的 App Secret |
+| `agentId` | string | 是 | 钉钉应用的 Agent ID |
+
+### 高级配置
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `streamEndpoint` | string | `wss://connect-api.dingtalk.com/stream` | Stream 连接地址 |
+| `groupPolicy` | string | `open` | 群聊策略: `open`=开放模式, `allowlist`=白名单模式 |
+| `groupAllowFrom` | string[] | `[]` | 允许的群聊 ID 列表（仅当 groupPolicy=allowlist 时有效） |
+| `dm.enabled` | boolean | `true` | 是否启用私聊 |
+| `dm.allowFrom` | string[] | `["*"]` | 允许私聊的用户 ID 列表，`["*"]` 表示允许所有用户 |
+| `heartbeatInterval` | number | `30000` | 心跳间隔（毫秒） |
+| `reconnectInterval` | number | `5000` | 重连间隔（毫秒） |
+| `cardTemplateId` | string | - | 流式卡片模板 ID（可选） |
+| `cardContentKey` | string | `content` | 卡片内容字段名 |
+
+## 🔧 权限控制
+
+### 群聊权限
+
+**开放模式**（推荐）：
+```json
+{
+  "groupPolicy": "open"
+}
+```
+允许机器人响应所有群聊消息。
+
+**白名单模式**：
+```json
+{
+  "groupPolicy": "allowlist",
+  "groupAllowFrom": ["cidxxxx", "cidyyyy"]
+}
+```
+仅响应指定群聊 ID 的消息。
+
+### 私聊权限
+
+**允许所有用户**：
+```json
+{
+  "dm": {
+    "enabled": true,
+    "allowFrom": ["*"]
+  }
+}
+```
+
+**指定用户白名单**：
+```json
+{
+  "dm": {
+    "enabled": true,
+    "allowFrom": ["user_id_1", "user_id_2"]
+  }
+}
+```
+
+**禁用私聊**：
+```json
+{
+  "dm": {
+    "enabled": false
+  }
+}
+```
+
+## 🚀 使用示例
+
+### 基本消息响应
+
+在钉钉群或私聊中 @机器人 发送消息，Clawdbot 会自动处理并回复。
+
+### 流式卡片（可选）
+
+如果你的应用支持流式卡片，可以配置 `cardTemplateId`:
+
+```json
+{
+  "cardTemplateId": "your_template_id",
+  "cardContentKey": "content"
+}
+```
+
+参考：[钉钉流式卡片文档](https://open.dingtalk.com/document/dingstart/typewriter-effect-streaming-ai-card)
+
+## 🛠️ 开发
+
+### 项目结构
+
+```
+dingtalk-stream-channel/
+├── index.ts                 # 插件入口
+├── src/
+│   ├── channel.ts          # Channel 实现
+│   ├── stream-client.ts    # Stream 客户端
+│   ├── message-sender.ts   # 消息发送器
+│   ├── types.ts            # 类型定义
+│   └── utils.ts            # 工具函数
+├── assistant_ding/         # Python 参考实现
+├── package.json
+├── tsconfig.json
+├── clawdbot.plugin.json
+└── README.md
+```
+
+### 构建
 
 ```bash
-# Linux
-tail -f ~/.clawdbot/gateway.log | grep -i dingtalk
-
-# macOS
-./scripts/clawlog.sh -f | grep -i dingtalk
+npm run build    # 编译 TypeScript
+npm run dev      # 监听模式
 ```
 
-### 在钉钉中测试
+### 调试
 
-- 打开已授权的群聊
-- 发送消息：`@小龙虾 你好`
-- 查看机器人是否回复
+查看 Clawdbot 日志：
 
-## 🔍 API 文档
+```bash
+# 查看实时日志
+journalctl -u clawdbot-gateway.service -f
 
-### DingTalkChannel
-
-```typescript
-interface DingTalkChannel {
-  id: string;
-  name: string;
-  start(config: DingTalkConfig, gateway: Gateway): Promise<void>;
-  stop(): Promise<void>;
-  sendMessage(chatId: string, text: string, isGroup: boolean): Promise<void>;
-  sendMessageWithOptions(chatId: string, text: string, options: SendMessageOptions): Promise<void>;
-  sendMarkdown(chatId: string, title: string, text: string, isGroup: boolean): Promise<void>;
-  sendCard(chatId: string, cardContent: any, isGroup: boolean): Promise<void>;
-  getStats(): ConnectionStats;
-}
+# 或查看日志文件
+tail -f /tmp/clawdbot/clawdbot-$(date +%Y-%m-%d).log
 ```
 
-### ConnectionStats
+## 📚 参考
 
-```typescript
-interface ConnectionStats {
-  status: ConnectionStatus;
-  connectedAt?: Date;
-  lastError?: string;
-  reconnectCount: number;
-  messagesReceived: number;
-  messagesSent: number;
-}
-```
-
-## 🐛 故障排查
-
-### 连接失败
-
-1. 检查 AppKey 和 AppSecret 是否正确
-2. 确认应用权限已正确配置
-3. 检查防火墙是否允许出站连接到 `connect-api.dingtalk.com:443`
-
-### 收不到消息
-
-1. 检查 `groupAllowFrom` 和 `dm.allowFrom` 是否包含正确的 ID
-2. 在群中 @ 机器人（确保机器人被添加到群中）
-3. 查看日志是否有权限警告
-
-### 发送消息失败
-
-1. 检查 AgentId 是否正确
-2. 确认机器人有发送消息权限
-3. 查看是否有频率限制
-
-## 📚 相关资源
-
-- [钉钉开放平台文档](https://open.dingtalk.com/)
-- [钉钉 Stream 模式介绍](https://open.dingtalk.com/document/development/introduction-to-stream-mode)
-- [Clawdbot 官方文档](https://docs.clawd.bot)
-- [Clawdbot Discord 社区](https://discord.com/invite/clawd)
-
-## 📄 许可证
-
-MIT
+- [Clawdbot Plugin SDK](https://docs.clawdbot.com/plugin-sdk)
+- [钉钉 Stream 模式文档](https://open.dingtalk.com/document/development/introduction-to-stream-mode)
+- [钉钉 Stream SDK Python](https://github.com/open-dingtalk/dingtalk-stream-sdk-python)
+- [Python 参考实现](./assistant_ding/README.md)
 
 ## 🤝 贡献
 
 欢迎提交 Issue 和 Pull Request！
 
-## 👨‍💻 作者
+## 📄 许可证
 
-小龙虾助手 🦞
-
----
-
-Made with ❤️ by Clawdbot
+MIT License

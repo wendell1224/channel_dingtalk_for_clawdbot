@@ -1,8 +1,10 @@
 {
-  "name": "@clawdbot/dingtalk",
+  "name": "@clawdbot/dingtalk-stream",
   "version": "1.0.0",
   "type": "module",
   "description": "DingTalk Stream mode channel plugin for Clawdbot - 无需公网IP，通过长连接实时接收钉钉消息",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "clawdbot": {
     "extensions": [
       "./index.ts"

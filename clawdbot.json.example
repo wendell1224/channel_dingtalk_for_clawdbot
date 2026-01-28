@@ -2,22 +2,20 @@
   "channels": {
     "dingtalk": {
       "enabled": true,
-      "appKey": "dingxxxxxxxxxxxxxxxx",
-      "appSecret": "xxxxxxxxxxxxxxxxxxxxxxxx",
-      "agentId": "123456789",
+      "appKey": "your_app_key_here",
+      "appSecret": "your_app_secret_here",
+      "agentId": "your_agent_id_here",
       "streamEndpoint": "wss://connect-api.dingtalk.com/stream",
-      "groupPolicy": "allowlist",
-      "groupAllowFrom": [
-        "cidxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-      ],
+      "groupPolicy": "open",
+      "groupAllowFrom": [],
       "dm": {
         "enabled": true,
-        "allowFrom": [
-          "$:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-        ]
+        "allowFrom": ["*"]
       },
       "heartbeatInterval": 30000,
-      "reconnectInterval": 5000
+      "reconnectInterval": 5000,
+      "cardTemplateId": "",
+      "cardContentKey": "content"
     }
   }
 }

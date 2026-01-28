@@ -1,11 +1,89 @@
 {
-  "id": "dingtalk",
+  "id": "dingtalk-stream",
+  "name": "DingTalk Stream",
+  "version": "1.0.0",
+  "description": "钉钉 Stream 模式通道插件 - 无需公网IP的实时消息接收",
   "channels": [
     "dingtalk"
   ],
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
-    "properties": {}
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否启用钉钉通道"
+      },
+      "appKey": {
+        "type": "string",
+        "description": "钉钉应用的 App Key"
+      },
+      "appSecret": {
+        "type": "string",
+        "description": "钉钉应用的 App Secret"
+      },
+      "agentId": {
+        "type": "string",
+        "description": "钉钉应用的 Agent ID"
+      },
+      "streamEndpoint": {
+        "type": "string",
+        "default": "wss://connect-api.dingtalk.com/stream",
+        "description": "Stream 连接地址"
+      },
+      "groupPolicy": {
+        "type": "string",
+        "enum": ["open", "allowlist"],
+        "default": "open",
+        "description": "群聊策略: open=开放模式, allowlist=白名单模式"
+      },
+      "groupAllowFrom": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "default": [],
+        "description": "允许的群聊 ID 列表（仅当 groupPolicy=allowlist 时有效）"
+      },
+      "dm": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "是否启用私聊"
+          },
+          "allowFrom": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": ["*"],
+            "description": "允许私聊的用户 ID 列表，使用 ['*'] 表示允许所有用户"
+          }
+        }
+      },
+      "heartbeatInterval": {
+        "type": "number",
+        "default": 30000,
+        "description": "心跳间隔（毫秒）"
+      },
+      "reconnectInterval": {
+        "type": "number",
+        "default": 5000,
+        "description": "重连间隔（毫秒）"
+      },
+      "cardTemplateId": {
+        "type": "string",
+        "description": "流式卡片模板 ID（可选）"
+      },
+      "cardContentKey": {
+        "type": "string",
+        "default": "content",
+        "description": "卡片内容字段名"
+      }
+    },
+    "required": ["appKey", "appSecret", "agentId"]
   }
 }
