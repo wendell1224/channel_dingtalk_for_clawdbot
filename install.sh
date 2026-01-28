@@ -44,7 +44,13 @@ if [ -d "${CHANNELS_DIR}" ]; then
     mv "${CHANNELS_DIR}" "${CHANNELS_DIR}.backup.$(date +%Y%m%d%H%M%S)"
 fi
 
-cp -r "$(pwd)/dist" "${CHANNELS_DIR}"
+mkdir -p "${CHANNELS_DIR}"
+
+# 复制必要的文件和目录
+cp -r "$(pwd)/dist" "${CHANNELS_DIR}/"
+cp "$(pwd)/package.json" "${CHANNELS_DIR}/"
+cp "$(pwd)/README.md" "${CHANNELS_DIR}/"
+cp -r "$(pwd)/node_modules" "${CHANNELS_DIR}/" || echo "⚠️  node_modules 未复制，请确保在目标位置运行 npm install"
 
 echo ""
 echo "========================================"
