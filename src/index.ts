@@ -22,6 +22,7 @@ let sender: DingTalkMessageSender | null = null;
 export const dingtalk: DingTalkChannel = {
   id: 'dingtalk',
   name: 'DingTalk (Stream Mode)',
+  label: 'DingTalk',
 
   /**
    * 启动通道

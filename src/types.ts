@@ -166,6 +166,8 @@ export interface DingTalkChannel {
   id: string;
   /** 通道名称 */
   name: string;
+  /** 通道标签 */
+  label: string;
   /** 启动通道 */
   start(config: DingTalkConfig, gateway: Gateway): Promise<void>;
   /** 停止通道 */
