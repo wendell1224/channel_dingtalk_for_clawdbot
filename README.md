@@ -39,16 +39,16 @@ cd channel_dingtalk_for_clawdbot
 npm install
 npm run build
 
-# 3. 创建插件目录
-mkdir -p ~/.clawdbot/channels/dingtalk
+# 3. 创建插件目录（注意：是 plugins 不是 channels）
+mkdir -p ~/.clawdbot/plugins/dingtalk
 
 # 4. 复制所有必要文件
-cp -r dist ~/.clawdbot/channels/dingtalk/
-cp package.json ~/.clawdbot/channels/dingtalk/
-cp -r node_modules ~/.clawdbot/channels/dingtalk/
+cp -r dist ~/.clawdbot/plugins/dingtalk/
+cp package.json ~/.clawdbot/plugins/dingtalk/
+cp -r node_modules ~/.clawdbot/plugins/dingtalk/
 
-# 5. 或者使用软链接（开发模式）
-# ln -s $(pwd) ~/.clawdbot/channels/dingtalk
+# 5. 或者使用软链接（开发模式，推荐）
+# ln -s $(pwd) ~/.clawdbot/plugins/dingtalk
 ```
 
 ### 方法三：从 npm 安装（如果已发布）

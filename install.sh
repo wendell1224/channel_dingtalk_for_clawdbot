@@ -32,25 +32,25 @@ npm run build
 
 # 创建目标目录
 CLAWDBOT_DIR="${HOME}/.clawdbot"
-CHANNELS_DIR="${CLAWDBOT_DIR}/channels/dingtalk"
+PLUGIN_DIR="${CLAWDBOT_DIR}/plugins/dingtalk"
 
 echo "📁 创建插件目录..."
-mkdir -p "${CLAWDBOT_DIR}/channels"
+mkdir -p "${CLAWDBOT_DIR}/plugins"
 
 # 复制文件
 echo "📋 复制插件文件..."
-if [ -d "${CHANNELS_DIR}" ]; then
+if [ -d "${PLUGIN_DIR}" ]; then
     echo "⚠️  检测到已存在的插件目录，正在备份..."
-    mv "${CHANNELS_DIR}" "${CHANNELS_DIR}.backup.$(date +%Y%m%d%H%M%S)"
+    mv "${PLUGIN_DIR}" "${PLUGIN_DIR}.backup.$(date +%Y%m%d%H%M%S)"
 fi
 
-mkdir -p "${CHANNELS_DIR}"
+mkdir -p "${PLUGIN_DIR}"
 
 # 复制必要的文件和目录
-cp -r "$(pwd)/dist" "${CHANNELS_DIR}/"
-cp "$(pwd)/package.json" "${CHANNELS_DIR}/"
-cp "$(pwd)/README.md" "${CHANNELS_DIR}/"
-cp -r "$(pwd)/node_modules" "${CHANNELS_DIR}/" || echo "⚠️  node_modules 未复制，请确保在目标位置运行 npm install"
+cp -r "$(pwd)/dist" "${PLUGIN_DIR}/"
+cp "$(pwd)/package.json" "${PLUGIN_DIR}/"
+cp "$(pwd)/README.md" "${PLUGIN_DIR}/"
+cp -r "$(pwd)/node_modules" "${PLUGIN_DIR}/" || echo "⚠️  node_modules 未复制，请确保在目标位置运行 npm install"
 
 echo ""
 echo "========================================"

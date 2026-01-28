@@ -1,33 +1,53 @@
 # 快速修复指南
 
-## 问题：`unknown channel id: dingtalk`
+## 问题：`plugin not found: dingtalk`
 
-这个错误表示 Clawdbot 无法识别 dingtalk 插件。原因是插件没有正确安装。
+这个错误表示 Clawdbot 无法在插件搜索目录中找到 dingtalk 插件。
 
-## 解决方案
+**关键问题：插件必须安装在 `~/.clawdbot/plugins/` 而不是 `~/.clawdbot/channels/`！**
 
-在你的服务器上执行以下命令：
+## ✅ 解决方案（在服务器上执行）
 
-### 步骤 1：重新安装插件
+### 方法 1：使用软链接（推荐，最简单）
 
 ```bash
-# 进入项目目录
 cd /tmp/channel_dingtalk_for_clawdbot
 
-# 确保已经编译
+# 删除旧的安装
+rm -rf ~/.clawdbot/channels/dingtalk
+rm -rf ~/.clawdbot/plugins/dingtalk
+
+# 创建软链接到正确的位置
+mkdir -p ~/.clawdbot/plugins
+ln -s $(pwd) ~/.clawdbot/plugins/dingtalk
+
+# 重启
+clawdbot gateway restart
+```
+
+### 方法 2：复制文件
+
+```bash
+cd /tmp/channel_dingtalk_for_clawdbot
+
+# 确保已编译
 npm install
 npm run build
 
 # 删除旧的安装
 rm -rf ~/.clawdbot/channels/dingtalk
+rm -rf ~/.clawdbot/plugins/dingtalk
 
-# 创建插件目录
-mkdir -p ~/.clawdbot/channels/dingtalk
+# 创建插件目录（重要：是 plugins 不是 channels！）
+mkdir -p ~/.clawdbot/plugins/dingtalk
 
-# 复制所有必要文件（重要！必须包含 package.json）
-cp -r dist ~/.clawdbot/channels/dingtalk/
-cp package.json ~/.clawdbot/channels/dingtalk/
-cp -r node_modules ~/.clawdbot/channels/dingtalk/
+# 复制所有必要文件
+cp -r dist ~/.clawdbot/plugins/dingtalk/
+cp package.json ~/.clawdbot/plugins/dingtalk/
+cp -r node_modules ~/.clawdbot/plugins/dingtalk/
+
+# 重启
+clawdbot gateway restart
 ```
 
 ### 步骤 2：验证安装
