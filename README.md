@@ -28,7 +28,7 @@ cd channel_dingtalk_for_clawdbot
 bash install.sh
 ```
 
-### 方法二：手动安装
+### 方法二：手动安装到 Clawdbot Extensions 目录
 
 ```bash
 # 1. 克隆仓库
@@ -39,23 +39,25 @@ cd channel_dingtalk_for_clawdbot
 npm install
 npm run build
 
-# 3. 创建插件目录（注意：是 plugins 不是 channels）
-mkdir -p ~/.clawdbot/plugins/dingtalk
+# 3. 创建扩展目录
+sudo mkdir -p /usr/lib/node_modules/clawdbot/extensions/dingtalk
 
 # 4. 复制所有必要文件
-cp -r dist ~/.clawdbot/plugins/dingtalk/
-cp package.json ~/.clawdbot/plugins/dingtalk/
-cp -r node_modules ~/.clawdbot/plugins/dingtalk/
-
-# 5. 或者使用软链接（开发模式，推荐）
-# ln -s $(pwd) ~/.clawdbot/plugins/dingtalk
+sudo cp -r src /usr/lib/node_modules/clawdbot/extensions/dingtalk/
+sudo cp index.ts /usr/lib/node_modules/clawdbot/extensions/dingtalk/
+sudo cp clawdbot.plugin.json /usr/lib/node_modules/clawdbot/extensions/dingtalk/
+sudo cp package.json /usr/lib/node_modules/clawdbot/extensions/dingtalk/
+sudo cp -r node_modules /usr/lib/node_modules/clawdbot/extensions/dingtalk/
 ```
 
-### 方法三：从 npm 安装（如果已发布）
+### 方法三：使用安装脚本（推荐）
 
 ```bash
-npm install @clawdbot/channel-dingtalk
+chmod +x install.sh
+sudo ./install.sh
 ```
+
+安装脚本会自动完成上述所有步骤。
 
 ## ⚙️ 配置
 

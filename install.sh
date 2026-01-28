@@ -1,72 +1,82 @@
 #!/bin/bash
-
-# Clawdbot 钉钉 Stream 通道插件安装脚本
+#
+# 钉钉 Stream 通道插件安装脚本
+# 用于将插件安装到 Clawdbot 的 extensions 目录
+#
 
 set -e
 
-echo "========================================"
-echo "Clawdbot 钉钉 Stream 通道插件安装"
-echo "========================================"
+# 颜色输出
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
 
-# 检查 Node.js
-if ! command -v node &> /dev/null; then
-    echo "❌ 错误: 未找到 Node.js，请先安装 Node.js >= 18"
-    exit 1
+echo -e "${GREEN}================================================${NC}"
+echo -e "${GREEN}钉钉 Stream 通道插件安装${NC}"
+echo -e "${GREEN}================================================${NC}"
+
+# 检查是否在插件目录
+if [ ! -f "package.json" ] || [ ! -f "index.ts" ]; then
+  echo -e "${RED}错误: 请在插件根目录下运行此脚本${NC}"
+  exit 1
 fi
 
-NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
-if [ "$NODE_VERSION" -lt 18 ]; then
-    echo "❌ 错误: Node.js 版本过低，需要 >= 18，当前: $(node -v)"
-    exit 1
-fi
-
-echo "✅ Node.js 版本检查通过: $(node -v)"
-
-# 安装依赖
-echo "📦 正在安装依赖..."
+# 1. 安装依赖
+echo -e "\n${YELLOW}步骤 1/4: 安装依赖...${NC}"
 npm install
 
-# 编译 TypeScript
-echo "🔨 正在编译 TypeScript..."
+# 2. 编译 TypeScript（可选，因为 Clawdbot 会直接加载 .ts 文件）
+echo -e "\n${YELLOW}步骤 2/4: 编译 TypeScript...${NC}"
 npm run build
 
+# 3. 复制到 Clawdbot extensions 目录
+CLAWDBOT_EXTENSIONS="/usr/lib/node_modules/clawdbot/extensions/dingtalk"
+
+echo -e "\n${YELLOW}步骤 3/4: 复制插件文件到 ${CLAWDBOT_EXTENSIONS}...${NC}"
+
 # 创建目标目录
-CLAWDBOT_DIR="${HOME}/.clawdbot"
-PLUGIN_DIR="${CLAWDBOT_DIR}/plugins/dingtalk"
+sudo mkdir -p "$CLAWDBOT_EXTENSIONS"
 
-echo "📁 创建插件目录..."
-mkdir -p "${CLAWDBOT_DIR}/plugins"
+# 复制必要文件
+sudo cp -r src "$CLAWDBOT_EXTENSIONS/"
+sudo cp index.ts "$CLAWDBOT_EXTENSIONS/"
+sudo cp clawdbot.plugin.json "$CLAWDBOT_EXTENSIONS/"
+sudo cp package.json "$CLAWDBOT_EXTENSIONS/"
+sudo cp -r node_modules "$CLAWDBOT_EXTENSIONS/"
 
-# 复制文件
-echo "📋 复制插件文件..."
-if [ -d "${PLUGIN_DIR}" ]; then
-    echo "⚠️  检测到已存在的插件目录，正在备份..."
-    mv "${PLUGIN_DIR}" "${PLUGIN_DIR}.backup.$(date +%Y%m%d%H%M%S)"
+# 如果有 dist 目录也复制
+if [ -d "dist" ]; then
+  sudo cp -r dist "$CLAWDBOT_EXTENSIONS/"
 fi
 
-mkdir -p "${PLUGIN_DIR}"
+echo -e "${GREEN}✓ 插件文件已复制${NC}"
 
-# 复制必要的文件和目录
-cp -r "$(pwd)/dist" "${PLUGIN_DIR}/"
-cp "$(pwd)/package.json" "${PLUGIN_DIR}/"
-cp "$(pwd)/README.md" "${PLUGIN_DIR}/"
-cp -r "$(pwd)/node_modules" "${PLUGIN_DIR}/" || echo "⚠️  node_modules 未复制，请确保在目标位置运行 npm install"
+# 4. 配置说明
+echo -e "\n${YELLOW}步骤 4/4: 配置说明${NC}"
+echo -e "
+请在 ${GREEN}~/.clawdbot/clawdbot.json${NC} 中添加以下配置：
 
-echo ""
-echo "========================================"
-echo "✅ 安装完成！"
-echo "========================================"
-echo ""
-echo "📝 下一步："
-echo ""
-echo "1. 复制配置示例到你的 Clawdbot 配置文件："
-echo "   cp clawdbot.json.example ~/clawdbot.json.example"
-echo ""
-echo "2. 编辑 ~/.clawdbot/clawdbot.json，添加钉钉通道配置："
-echo "   记得替换 AppKey、AppSecret、AgentId 为你的实际值"
-echo ""
-echo "3. 重启 Clawdbot Gateway："
-echo "   clawdbot gateway restart"
-echo ""
-echo "📚 更多信息请参考 README.md"
-echo ""
+${YELLOW}{${NC}
+  ${YELLOW}\"channels\": {${NC}
+    ${YELLOW}\"dingtalk\": {${NC}
+      ${GREEN}\"enabled\": true,${NC}
+      ${GREEN}\"appKey\": \"your_app_key\",${NC}
+      ${GREEN}\"appSecret\": \"your_app_secret\",${NC}
+      ${GREEN}\"agentId\": \"your_agent_id\",${NC}
+      ${GREEN}\"streamEndpoint\": \"wss://connect-api.dingtalk.com/stream\",${NC}
+      ${GREEN}\"groupPolicy\": \"open\",${NC}
+      ${GREEN}\"dm\": {${NC}
+        ${GREEN}\"enabled\": true,${NC}
+        ${GREEN}\"allowFrom\": [\"*\"]${NC}
+      ${GREEN}}${NC}
+    ${YELLOW}}${NC}
+  ${YELLOW}}${NC}
+${YELLOW}}${NC}
+
+然后运行: ${GREEN}clawdbot gateway restart${NC}
+"
+
+echo -e "${GREEN}================================================${NC}"
+echo -e "${GREEN}✅ 安装完成！${NC}"
+echo -e "${GREEN}================================================${NC}"
