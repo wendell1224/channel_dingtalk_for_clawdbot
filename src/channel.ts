@@ -1,231 +1,232 @@
 /**
- * 钉钉 Stream Channel 实现
- * 
- * 参考 Python 版本 (assistant_ding) 的完整逻辑:
- * - 使用钉钉 Stream SDK 建立长连接
- * - 接收实时消息事件
- * - 发送文本、Markdown、卡片消息
- * - 支持流式响应（通过 AICardReplier）
+ * DingTalk Channel Plugin
+ * 参照 clawdbot-feishu 的架构
  */
 
-import type { ChannelPlugin } from "clawdbot/plugin-sdk";
-import { DingTalkStreamClient } from "./stream-client.js";
-import { DingTalkMessageSender } from "./message-sender.js";
-import type { DingTalkConfig, Gateway } from "./types.js";
+import type { ChannelPlugin, ClawdbotConfig } from "clawdbot/plugin-sdk";
+import { DEFAULT_ACCOUNT_ID, PAIRING_APPROVED_MESSAGE } from "clawdbot/plugin-sdk";
+import type { ResolvedDingTalkAccount, DingTalkConfig } from "./types.js";
+import { resolveDingTalkAccount, resolveDingTalkCredentials } from "./accounts.js";
+import { sendMessageDingTalk } from "./send.js";
 
-/**
- * 钉钉 Stream 通道
- */
-export class DingTalkStreamChannel implements ChannelPlugin {
-  private client: DingTalkStreamClient | null = null;
-  private sender: DingTalkMessageSender | null = null;
-  private channelConfig: DingTalkConfig | null = null;
-  private gateway: Gateway | null = null;
+const meta = {
+  id: "dingtalk",
+  label: "DingTalk",
+  selectionLabel: "DingTalk (钉钉)",
+  docsPath: "/channels/dingtalk",
+  docsLabel: "dingtalk",
+  blurb: "DingTalk Stream mode - 无需公网IP",
+  order: 80,
+} as const;
 
-  /**
-   * 元数据
-   */
-  meta = {
-    label: "DingTalk",
-    description: "钉钉 Stream 模式通道 - 无需公网IP的实时消息接收",
-  };
-
-  /**
-   * 配置管理
-   */
-  config = {
-    /**
-     * 列出所有账户ID
-     */
-    listAccountIds: async (): Promise<string[]> => {
-      // 钉钉 Stream 模式下，没有传统意义的多账户概念
-      // 每个应用对应一个机器人实例
-      return this.client ? ['default'] : [];
+export const dingtalkPlugin: ChannelPlugin<ResolvedDingTalkAccount> = {
+  id: "dingtalk",
+  meta: {
+    ...meta,
+  },
+  pairing: {
+    idLabel: "dingtalkUserId",
+    normalizeAllowEntry: (entry) => entry.replace(/^(dingtalk|user):/i, ""),
+    notifyApproval: async ({ cfg, id }) => {
+      await sendMessageDingTalk({
+        cfg,
+        to: id,
+        text: PAIRING_APPROVED_MESSAGE,
+      });
     },
-  };
-
-  /**
-   * 引导配置
-   */
-  onboarding = {
-    /**
-     * 获取引导步骤
-     */
-    async getSteps() {
+  },
+  capabilities: {
+    chatTypes: ["direct", "channel"],
+    polls: false,
+    threads: false,
+    media: true,
+    reactions: false,
+    edit: false,
+    reply: true,
+  },
+  agentPrompt: {
+    messageToolHints: () => [
+      "- DingTalk targeting: omit `target` to reply to the current conversation.",
+    ],
+  },
+  groups: {
+    resolveToolPolicy: () => ({ allowed: true, reason: null }),
+  },
+  reload: { configPrefixes: ["channels.dingtalk"] },
+  configSchema: {
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        enabled: { type: "boolean" },
+        appKey: { type: "string" },
+        appSecret: { type: "string" },
+        agentId: { type: "string" },
+        dmPolicy: { type: "string", enum: ["open", "pairing", "allowlist"] },
+        allowFrom: { type: "array", items: { type: "string" } },
+        groupPolicy: { type: "string", enum: ["open", "allowlist", "disabled"] },
+        groupAllowFrom: { type: "array", items: { type: "string" } },
+        requireMention: { type: "boolean" },
+        historyLimit: { type: "integer", minimum: 0 },
+      },
+    },
+  },
+  config: {
+    listAccountIds: () => [DEFAULT_ACCOUNT_ID],
+    resolveAccount: (cfg) => resolveDingTalkAccount({ cfg }),
+    defaultAccountId: () => DEFAULT_ACCOUNT_ID,
+    setAccountEnabled: ({ cfg, enabled }) => ({
+      ...cfg,
+      channels: {
+        ...cfg.channels,
+        dingtalk: {
+          ...cfg.channels?.dingtalk,
+          enabled,
+        },
+      },
+    }),
+    deleteAccount: ({ cfg }) => {
+      const next = { ...cfg } as ClawdbotConfig;
+      const nextChannels = { ...cfg.channels };
+      delete (nextChannels as Record<string, unknown>).dingtalk;
+      if (Object.keys(nextChannels).length > 0) {
+        next.channels = nextChannels;
+      } else {
+        delete next.channels;
+      }
+      return next;
+    },
+    isConfigured: (_account, cfg) =>
+      Boolean(resolveDingTalkCredentials(cfg.channels?.dingtalk as DingTalkConfig | undefined)),
+    describeAccount: (account) => ({
+      accountId: account.accountId,
+      enabled: account.enabled,
+      configured: account.configured,
+    }),
+    resolveAllowFrom: ({ cfg }) =>
+      (cfg.channels?.dingtalk as DingTalkConfig | undefined)?.allowFrom ?? [],
+    formatAllowFrom: ({ allowFrom }) =>
+      allowFrom
+        .map((entry) => String(entry).trim())
+        .filter(Boolean)
+        .map((entry) => entry.toLowerCase()),
+  },
+  security: {
+    collectWarnings: ({ cfg }) => {
+      const dingtalkCfg = cfg.channels?.dingtalk as DingTalkConfig | undefined;
+      const groupPolicy = dingtalkCfg?.groupPolicy ?? "allowlist";
+      if (groupPolicy !== "open") return [];
       return [
-        {
-          id: "credentials",
-          title: "配置钉钉应用凭证",
-          description: "从钉钉开放平台获取 AppKey、AppSecret 和 AgentId",
-          fields: [
-            {
-              name: "appKey",
-              label: "App Key",
-              type: "text" as const,
-              required: true,
-              placeholder: "dingxxx...",
-            },
-            {
-              name: "appSecret",
-              label: "App Secret",
-              type: "password" as const,
-              required: true,
-              placeholder: "应用密钥",
-            },
-            {
-              name: "agentId",
-              label: "Agent ID",
-              type: "text" as const,
-              required: true,
-              placeholder: "应用的 AgentId",
-            },
-          ],
-        },
-        {
-          id: "policies",
-          title: "配置消息策略",
-          description: "设置群聊和私聊的权限策略",
-          fields: [
-            {
-              name: "groupPolicy",
-              label: "群聊策略",
-              type: "select" as const,
-              required: true,
-              options: [
-                { value: "open", label: "开放模式 - 允许所有群" },
-                { value: "allowlist", label: "白名单模式 - 仅允许指定群" },
-              ],
-              default: "open",
-            },
-            {
-              name: "dmEnabled",
-              label: "启用私聊",
-              type: "boolean" as const,
-              default: true,
-            },
-          ],
-        },
+        `- DingTalk groups: groupPolicy="open" allows any member to trigger (mention-gated). Set channels.dingtalk.groupPolicy="allowlist" to restrict.`,
       ];
     },
-  };
-
-  /**
-   * 配对功能（用于连接账户）
-   */
-  pairing = {
-    /**
-     * 开始配对
-     */
-    async start() {
+  },
+  setup: {
+    resolveAccountId: () => DEFAULT_ACCOUNT_ID,
+    applyAccountConfig: ({ cfg }) => ({
+      ...cfg,
+      channels: {
+        ...cfg.channels,
+        dingtalk: {
+          ...cfg.channels?.dingtalk,
+          enabled: true,
+        },
+      },
+    }),
+  },
+  onboarding: {
+    steps: async () => [
+      {
+        id: "credentials",
+        title: "Configure DingTalk Credentials",
+        description: "Get your App Key and App Secret from DingTalk Open Platform",
+        fields: [
+          {
+            name: "appKey",
+            label: "App Key",
+            type: "text",
+            required: true,
+          },
+          {
+            name: "appSecret",
+            label: "App Secret",
+            type: "password",
+            required: true,
+          },
+        ],
+      },
+    ],
+    apply: async ({ cfg, values }) => {
       return {
-        instructions: "请在钉钉开放平台配置 Stream 模式，并填写应用凭证",
-        authUrl: "https://open-dev.dingtalk.com",
+        ...cfg,
+        channels: {
+          ...cfg.channels,
+          dingtalk: {
+            ...cfg.channels?.dingtalk,
+            enabled: true,
+            appKey: values.appKey,
+            appSecret: values.appSecret,
+          },
+        },
       };
     },
-
-    /**
-     * 完成配对
-     */
-    async complete(data: any) {
-      return {
-        accountId: "default",
-        accountName: "钉钉机器人",
-      };
+  },
+  messaging: {
+    normalizeTarget: (target) => target,
+    targetResolver: {
+      looksLikeId: (id) => Boolean(id && typeof id === "string"),
+      hint: "<chatId|userId>",
     },
-  };
-
-  /**
-   * 通道能力
-   */
-  capabilities = {
-    /**
-     * 支持的消息类型
-     */
-    supportedMessageTypes: ["text", "markdown", "card"],
-
-    /**
-     * 支持群聊
-     */
-    supportsGroups: true,
-
-    /**
-     * 支持私聊
-     */
-    supportsDirectMessages: true,
-
-    /**
-     * 支持流式响应
-     */
-    supportsStreaming: false, // 钉钉的流式卡片需要特殊处理
-  };
-
-  /**
-   * 启动通道
-   */
-  async start(config: DingTalkConfig, gateway: Gateway): Promise<void> {
-    console.log('[DingTalk Channel] ================================================');
-    console.log('[DingTalk Channel] 正在启动钉钉 Stream 通道...');
-    console.log('[DingTalk Channel] ================================================');
-    console.log(`[DingTalk Channel] AppKey: ${config.appKey}`);
-    console.log(`[DingTalk Channel] AgentId: ${config.agentId}`);
-    console.log(`[DingTalk Channel] Stream Endpoint: ${config.streamEndpoint || 'wss://connect-api.dingtalk.com/stream'}`);
-    console.log(`[DingTalk Channel] 群聊策略: ${config.groupPolicy}`);
-    console.log(`[DingTalk Channel] 私聊启用: ${config.dm?.enabled ? '是' : '否'}`);
-
-    this.channelConfig = config;
-    this.gateway = gateway;
-
-    // 创建消息发送器
-    this.sender = new DingTalkMessageSender(config);
-
-    // 创建 Stream 客户端并连接
-    this.client = new DingTalkStreamClient(config, gateway);
-    await this.client.connect();
-
-    console.log('[DingTalk Channel] ================================================');
-    console.log('[DingTalk Channel] ✅ 钉钉 Stream 通道启动成功！');
-    console.log('[DingTalk Channel] ================================================');
-  }
-
-  /**
-   * 停止通道
-   */
-  async stop(): Promise<void> {
-    console.log('[DingTalk Channel] ================================================');
-    console.log('[DingTalk Channel] 正在停止钉钉 Stream 通道...');
-    console.log('[DingTalk Channel] ================================================');
-
-    if (this.client) {
-      await this.client.disconnect();
-      this.client = null;
-    }
-
-    this.sender = null;
-    this.channelConfig = null;
-    this.gateway = null;
-
-    console.log('[DingTalk Channel] ================================================');
-    console.log('[DingTalk Channel] ✅ 钉钉 Stream 通道已停止');
-    console.log('[DingTalk Channel] ================================================');
-  }
-
-  /**
-   * 发送消息（简化接口，向后兼容）
-   */
-  async sendMessage(chatId: string, text: string, isGroup: boolean): Promise<void> {
-    if (!this.sender) {
-      throw new Error('DingTalk 通道未启动');
-    }
-    await this.sender.sendText(chatId, text, isGroup);
-  }
-
-  /**
-   * 获取连接统计信息
-   */
-  getStats(): any {
-    if (!this.client) {
-      return { status: 'disconnected' };
-    }
-    return this.client.getStats();
-  }
-}
+  },
+  directory: {
+    self: async () => null,
+    listPeers: async () => [],
+    listGroups: async () => [],
+    listPeersLive: async () => [],
+    listGroupsLive: async () => [],
+  },
+  outbound: {
+    sendText: async ({ cfg, to, text }) => {
+      return await sendMessageDingTalk({ cfg, to, text });
+    },
+  },
+  status: {
+    defaultRuntime: {
+      accountId: DEFAULT_ACCOUNT_ID,
+      running: false,
+      lastStartAt: null,
+      lastStopAt: null,
+      lastError: null,
+    },
+    buildChannelSummary: ({ snapshot }) => ({
+      configured: snapshot.configured ?? false,
+      running: snapshot.running ?? false,
+      lastStartAt: snapshot.lastStartAt ?? null,
+      lastStopAt: snapshot.lastStopAt ?? null,
+      lastError: snapshot.lastError ?? null,
+    }),
+    probeAccount: async () => ({ ok: true }),
+    buildAccountSnapshot: ({ account, runtime }) => ({
+      accountId: account.accountId,
+      enabled: account.enabled,
+      configured: account.configured,
+      running: runtime?.running ?? false,
+      lastStartAt: runtime?.lastStartAt ?? null,
+      lastStopAt: runtime?.lastStopAt ?? null,
+      lastError: runtime?.lastError ?? null,
+    }),
+  },
+  gateway: {
+    startAccount: async (ctx) => {
+      const { monitorDingTalkProvider } = await import("./monitor.js");
+      const dingtalkCfg = ctx.cfg.channels?.dingtalk as DingTalkConfig | undefined;
+      ctx.log?.info(`starting dingtalk provider (stream mode)`);
+      return monitorDingTalkProvider({
+        config: ctx.cfg,
+        runtime: ctx.runtime,
+        abortSignal: ctx.abortSignal,
+        accountId: ctx.accountId,
+      });
+    },
+  },
+};
