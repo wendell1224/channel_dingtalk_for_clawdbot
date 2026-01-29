@@ -1,8 +1,5 @@
 {
-  "id": "dingtalk-stream",
-  "name": "DingTalk Stream",
-  "version": "1.0.0",
-  "description": "钉钉 Stream 模式通道插件 - 无需公网IP的实时消息接收",
+  "id": "dingtalk",
   "channels": [
     "dingtalk"
   ],
