@@ -133,6 +133,8 @@ export async function handleDingTalkMessage(params: {
       body: ctx.content,
     });
 
+    log(`dingtalk: formatted body: ${body.slice(0, 200)}`);
+
     let combinedBody = body;
     const historyKey = isGroup ? ctx.chatId : undefined;
 
@@ -174,6 +176,10 @@ export async function handleDingTalkMessage(params: {
       OriginatingChannel: "dingtalk" as const,
       OriginatingTo: dingtalkTo,
     });
+
+    log(`dingtalk: ctxPayload Body: ${ctxPayload.Body.slice(0, 200)}`);
+    log(`dingtalk: ctxPayload RawBody: ${ctxPayload.RawBody}`);
+    log(`dingtalk: ctxPayload CommandBody: ${ctxPayload.CommandBody}`);
 
     // 创建符合 Clawdbot 规范的 dispatcher 对象
     const dispatcher = {
