@@ -32,6 +32,7 @@ export type DingTalkMessageContext = {
   mentionedBot: boolean;
   content: string;
   contentType: string;
+  sessionWebhook?: string; // 用于回复消息的 webhook URL
 };
 
 export type DingTalkSendResult = {

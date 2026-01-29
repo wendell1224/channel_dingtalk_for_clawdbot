@@ -4,7 +4,7 @@ import { dingtalkPlugin } from "./src/channel.js";
 import { setDingTalkRuntime } from "./src/runtime.js";
 
 export { monitorDingTalkProvider } from "./src/monitor.js";
-export { sendMessageDingTalk } from "./src/send.js";
+export { sendMessageDingTalk, sendMarkdownDingTalk } from "./src/send.js";
 export { dingtalkPlugin } from "./src/channel.js";
 
 const plugin = {

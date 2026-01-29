@@ -21,6 +21,7 @@ export type DingTalkMessageEvent = {
   conversationType: "1" | "2"; // 1=单聊, 2=群聊
   msgId: string;
   atUsers?: Array<{ dingtalkId: string }>;
+  sessionWebhook?: string; // 用于回复的 webhook URL
 };
 
 function parseDingTalkMessageEvent(event: DingTalkMessageEvent): DingTalkMessageContext {
@@ -39,6 +40,7 @@ function parseDingTalkMessageEvent(event: DingTalkMessageEvent): DingTalkMessage
     mentionedBot,
     content,
     contentType: event.msgtype,
+    sessionWebhook: event.sessionWebhook, // 传递 webhook 用于回复
   };
 }
 
@@ -168,10 +170,22 @@ export async function handleDingTalkMessage(params: {
       OriginatingTo: dingtalkTo,
     });
 
-    // 创建简单的 dispatcher
+    // 创建回复 dispatcher（使用实际的发送功能）
+    const { sendMessageDingTalk } = await import("./send.js");
+    
     const dispatcher = async (text: string) => {
-      // TODO: 实际发送消息到钉钉
-      log(`dingtalk: would send reply to ${ctx.chatId}: ${text.slice(0, 100)}`);
+      try {
+        await sendMessageDingTalk({
+          cfg,
+          to: ctx.chatId,
+          text,
+          sessionWebhook: ctx.sessionWebhook,
+          atUserIds: isGroup && ctx.senderId ? [ctx.senderId] : [],
+        });
+        log(`dingtalk: reply sent to ${ctx.chatId}`);
+      } catch (err) {
+        error(`dingtalk: failed to send reply: ${String(err)}`);
+      }
     };
 
     const replyOptions = {};
