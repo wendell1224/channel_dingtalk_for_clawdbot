@@ -179,6 +179,7 @@ export async function handleDingTalkMessage(params: {
     const dispatcher = {
       dispatch: async (text: string) => {
         try {
+          log(`dingtalk: dispatch() called with text length: ${text.length}`);
           await sendMessageDingTalk({
             cfg,
             to: ctx.chatId,
@@ -192,6 +193,7 @@ export async function handleDingTalkMessage(params: {
       },
       sendFinalReply: async (text: string) => {
         try {
+          log(`dingtalk: sendFinalReply() called with text length: ${text.length}`);
           await sendMessageDingTalk({
             cfg,
             to: ctx.chatId,
@@ -208,9 +210,11 @@ export async function handleDingTalkMessage(params: {
         return { pending: 0, final: 0 };
       },
       waitForIdle: async () => {
+        log(`dingtalk: waitForIdle() called`);
         // DingTalk 消息发送是即时的，无需等待
       },
       markIdle: () => {
+        log(`dingtalk: markIdle() called`);
         // 标记为空闲（占位）
       },
     };
@@ -219,14 +223,14 @@ export async function handleDingTalkMessage(params: {
 
     log(`dingtalk: dispatching to agent (session=${route.sessionKey})`);
 
-    await core.channel.reply.dispatchReplyFromConfig({
+    const result = await core.channel.reply.dispatchReplyFromConfig({
       ctx: ctxPayload,
       cfg,
       dispatcher,
       replyOptions,
     });
 
-    log(`dingtalk: dispatch complete`);
+    log(`dingtalk: dispatch complete, result: ${JSON.stringify(result)}`);
   } catch (err) {
     error(`dingtalk: failed to dispatch message: ${String(err)}`);
   }
