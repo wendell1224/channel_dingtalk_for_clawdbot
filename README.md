@@ -179,6 +179,29 @@ clawdbot gateway restart
 
 参考：[钉钉流式卡片文档](https://open.dingtalk.com/document/dingstart/typewriter-effect-streaming-ai-card)
 
+## 🗑️ 卸载
+
+### 使用卸载脚本（推荐）
+
+```bash
+cd dingtalk-stream-channel
+sudo bash uninstall.sh
+```
+
+### 手动卸载
+
+```bash
+# 1. 删除插件文件
+sudo rm -rf /usr/lib/node_modules/clawdbot/extensions/dingtalk-stream
+
+# 2. 编辑配置文件，删除 DingTalk 配置
+nano ~/.clawdbot/clawdbot.json
+# 删除 channels.dingtalk 部分
+
+# 3. 重启 Clawdbot
+sudo systemctl restart clawdbot-gateway.service
+```
+
 ## 🛠️ 开发
 
 ### 项目结构
@@ -192,10 +215,11 @@ dingtalk-stream-channel/
 │   ├── message-sender.ts   # 消息发送器
 │   ├── types.ts            # 类型定义
 │   └── utils.ts            # 工具函数
-├── assistant_ding/         # Python 参考实现
 ├── package.json
 ├── tsconfig.json
 ├── clawdbot.plugin.json
+├── install.sh              # 安装脚本
+├── uninstall.sh            # 卸载脚本
 └── README.md
 ```
 
