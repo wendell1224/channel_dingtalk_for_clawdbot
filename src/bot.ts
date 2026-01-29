@@ -203,6 +203,10 @@ export async function handleDingTalkMessage(params: {
           error(`dingtalk: failed to send final reply: ${String(err)}`);
         }
       },
+      getQueuedCounts: () => {
+        // 返回队列中的消息数量（DingTalk 是即时发送，无队列）
+        return { pending: 0, final: 0 };
+      },
       waitForIdle: async () => {
         // DingTalk 消息发送是即时的，无需等待
       },
