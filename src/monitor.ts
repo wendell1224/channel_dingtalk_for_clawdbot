@@ -10,7 +10,7 @@ import { resolveDingTalkCredentials } from "./accounts.js";
 import { handleDingTalkMessage, type DingTalkMessageEvent } from "./bot.js";
 
 // @ts-ignore - dingtalk-stream 可能没有 TypeScript 类型定义
-import { DWClient, DWClientDownStream, EventAck, TOPIC_ROBOT } from "dingtalk-stream";
+import { DWClient, DWClientDownStream, TOPIC_ROBOT } from "dingtalk-stream";
 
 export type MonitorDingTalkOpts = {
   config?: ClawdbotConfig;
@@ -80,14 +80,15 @@ export async function monitorDingTalkProvider(opts: MonitorDingTalkOpts = {}): P
         });
 
         // 确认消息已处理（避免重复接收）
-        client.socketCallBackResponse(res.headers.messageId, new EventAck({}));
+        // EventAck 是一个对象，不需要 new
+        client.socketCallBackResponse(res.headers.messageId, {});
         
         log(`dingtalk: message ${eventData.msgId} processed successfully`);
       } catch (err) {
         error(`dingtalk: failed to process message: ${String(err)}`);
         // 即使处理失败，也要确认消息（避免无限重试）
         try {
-          client.socketCallBackResponse(res.headers.messageId, new EventAck({}));
+          client.socketCallBackResponse(res.headers.messageId, {});
         } catch (ackErr) {
           error(`dingtalk: failed to ack message: ${String(ackErr)}`);
         }
