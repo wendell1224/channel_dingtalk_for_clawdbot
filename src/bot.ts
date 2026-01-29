@@ -190,6 +190,19 @@ export async function handleDingTalkMessage(params: {
           error(`dingtalk: failed to send reply: ${String(err)}`);
         }
       },
+      sendFinalReply: async (text: string) => {
+        try {
+          await sendMessageDingTalk({
+            cfg,
+            to: ctx.chatId,
+            text,
+            useWebhook: true,
+          });
+          log(`dingtalk: sent final reply to ${ctx.chatId}`);
+        } catch (err) {
+          error(`dingtalk: failed to send final reply: ${String(err)}`);
+        }
+      },
       waitForIdle: async () => {
         // DingTalk 消息发送是即时的，无需等待
       },
