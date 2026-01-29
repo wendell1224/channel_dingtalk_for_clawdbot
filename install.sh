@@ -60,11 +60,36 @@ echo -e "${GREEN}✓ 插件文件已安装到 $INSTALL_DIR${NC}"
 
 # 5. 重启 Clawdbot Gateway
 echo -e "${YELLOW}[5/5] 重启 Clawdbot Gateway...${NC}"
-if systemctl is-active --quiet clawdbot-gateway.service; then
-    systemctl restart clawdbot-gateway.service
-    echo -e "${GREEN}✓ Clawdbot Gateway 已重启${NC}"
+
+# 检查是否存在 systemd 服务
+if systemctl list-unit-files | grep -q "clawdbot-gateway.service"; then
+    echo -e "${GREEN}✓ 检测到 systemd 服务${NC}"
+    
+    # 检查服务是否正在运行
+    if systemctl is-active --quiet clawdbot-gateway.service; then
+        echo "  重启服务..."
+        systemctl restart clawdbot-gateway.service
+        echo -e "${GREEN}✓ Clawdbot Gateway 服务已重启${NC}"
+    else
+        echo "  启动服务..."
+        systemctl start clawdbot-gateway.service
+        echo -e "${GREEN}✓ Clawdbot Gateway 服务已启动${NC}"
+    fi
+    
+    # 显示服务状态
+    sleep 1
+    if systemctl is-active --quiet clawdbot-gateway.service; then
+        echo -e "${GREEN}✓ 服务运行正常${NC}"
+    else
+        echo -e "${RED}✗ 服务启动失败，请检查日志${NC}"
+        echo "  运行: journalctl -u clawdbot-gateway.service -n 50"
+    fi
 else
-    echo -e "${YELLOW}! Clawdbot Gateway 服务未运行，请手动启动${NC}"
+    echo -e "${YELLOW}! 未检测到 systemd 服务${NC}"
+    echo "  请使用以下命令手动重启："
+    echo "    clawdbot gateway restart"
+    echo "  或者："
+    echo "    pkill -f 'clawdbot gateway' && clawdbot gateway run &"
 fi
 
 # 完成
@@ -76,12 +101,19 @@ echo ""
 echo "下一步："
 echo "  1. 编辑 ~/.clawdbot/clawdbot.json 添加钉钉通道配置"
 echo "  2. 参考 clawdbot.json.example 配置示例"
-echo "  3. 运行 'clawdbot gateway restart' 重启服务"
 echo ""
 echo "查看日志："
-echo "  journalctl -u clawdbot-gateway.service -f"
+if systemctl list-unit-files | grep -q "clawdbot-gateway.service"; then
+    echo "  journalctl -u clawdbot-gateway.service -f | grep -i dingtalk"
+else
+    echo "  tail -f /tmp/clawdbot/clawdbot-*.log | grep -i dingtalk"
+fi
+echo ""
+echo "测试插件："
+echo "  在钉钉中给机器人发消息或 @机器人"
 echo ""
 echo "详细文档："
 echo "  cat README.md"
 echo "  cat QUICKSTART.md"
+echo "  cat DEPLOY_STREAM.md"
 echo ""
