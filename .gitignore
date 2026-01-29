@@ -39,3 +39,14 @@ coverage/
 # Temporary files
 tmp/
 temp/
+
+# Old code and reference files
+src.old/
+assistant_ding/
+
+# Development/internal documentation (keep only main README)
+REWRITE_SUMMARY.md
+REWRITE_V2_SUMMARY.md
+QUICKFIX.md
+DEPLOY_STREAM.md
+INSTALL_GUIDE.md
