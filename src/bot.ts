@@ -271,6 +271,26 @@ export async function handleDingTalkMessage(params: {
     });
 
     log(`dingtalk: dispatch complete, result: ${JSON.stringify(result)}`);
+    
+    // 如果 Agent 没有生成回复（群聊常见问题），发送一个默认回复
+    if (result.queuedFinal === false && result.counts.final === 0 && result.counts.pending === 0) {
+      log(`dingtalk: Agent did not generate reply, sending fallback response`);
+      
+      // 生成一个简单的回复
+      const fallbackText = `收到你的消息：${ctx.content}\n\n小龙虾正在待命！🦞`;
+      
+      try {
+        await sendMessageDingTalk({
+          cfg,
+          to: ctx.chatId,
+          text: fallbackText,
+          useWebhook: true,
+        });
+        log(`dingtalk: sent fallback reply to ${ctx.chatId}`);
+      } catch (err) {
+        error(`dingtalk: failed to send fallback reply: ${String(err)}`);
+      }
+    }
   } catch (err) {
     error(`dingtalk: failed to dispatch message: ${String(err)}`);
   }
