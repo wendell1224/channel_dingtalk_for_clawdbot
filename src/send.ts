@@ -23,23 +23,33 @@ export function storeSessionWebhook(chatId: string, webhook: string): void {
  * 通过 sessionWebhook 发送消息（最快，推荐）
  */
 async function sendViaWebhook(webhook: string, content: string): Promise<void> {
+  console.log(`[DingTalk] Sending to webhook: ${webhook.slice(0, 50)}...`);
+  console.log(`[DingTalk] Message content: ${content.slice(0, 200)}`);
+  
+  const payload = {
+    msgtype: "text",
+    text: {
+      content,
+    },
+  };
+  
   const response = await fetch(webhook, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      msgtype: "text",
-      text: {
-        content,
-      },
-    }),
+    body: JSON.stringify(payload),
   });
 
+  const responseText = await response.text();
+  
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Webhook request failed: ${response.status} ${text}`);
+    console.error(`[DingTalk] Webhook request failed: ${response.status}`);
+    console.error(`[DingTalk] Response: ${responseText}`);
+    throw new Error(`Webhook request failed: ${response.status} ${responseText}`);
   }
+  
+  console.log(`[DingTalk] Webhook response: ${responseText}`);
 }
 
 /**
