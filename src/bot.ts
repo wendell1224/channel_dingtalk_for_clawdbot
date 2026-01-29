@@ -104,6 +104,7 @@ export async function handleDingTalkMessage(params: {
     const dingtalkFrom = isGroup ? `dingtalk:group:${ctx.chatId}` : `dingtalk:${ctx.senderId}`;
     const dingtalkTo = isGroup ? `chat:${ctx.chatId}` : `user:${ctx.senderId}`;
 
+    // 解析路由，但强制群聊使用主 session（临时解决方案）
     const route = core.channel.routing.resolveAgentRoute({
       cfg,
       channel: "dingtalk",
@@ -112,6 +113,10 @@ export async function handleDingTalkMessage(params: {
         id: isGroup ? ctx.chatId : ctx.senderId,
       },
     });
+    
+    // 如果是群聊，强制使用主 session（避免需要创建群聊 session）
+    const sessionKey = isGroup ? "agent:main:main" : route.sessionKey;
+    log(`dingtalk: using session ${sessionKey} for ${isGroup ? "group" : "dm"} message`);
 
     const preview = ctx.content.replace(/\s+/g, " ").slice(0, 160);
     const inboundLabel = isGroup
@@ -119,7 +124,7 @@ export async function handleDingTalkMessage(params: {
       : `DingTalk DM from ${ctx.senderId}`;
 
     core.system.enqueueSystemEvent(`${inboundLabel}: ${preview}`, {
-      sessionKey: route.sessionKey,
+      sessionKey,
       contextKey: `dingtalk:message:${ctx.chatId}:${ctx.messageId}`,
     });
 
@@ -161,7 +166,7 @@ export async function handleDingTalkMessage(params: {
       CommandBody: ctx.content,
       From: dingtalkFrom,
       To: dingtalkTo,
-      SessionKey: route.sessionKey,
+      SessionKey: sessionKey,
       AccountId: route.accountId,
       ChatType: isGroup ? "group" : "direct",
       GroupSubject: isGroup ? ctx.chatId : undefined,
@@ -256,7 +261,7 @@ export async function handleDingTalkMessage(params: {
 
     const replyOptions = {};
 
-    log(`dingtalk: dispatching to agent (session=${route.sessionKey})`);
+    log(`dingtalk: dispatching to agent (session=${sessionKey})`);
 
     const result = await core.channel.reply.dispatchReplyFromConfig({
       ctx: ctxPayload,
