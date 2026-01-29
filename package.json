@@ -43,7 +43,7 @@
   "dependencies": {
     "@alicloud/dingtalk": "^2.0.0",
     "@alicloud/openapi-client": "^0.4.0",
-    "dingtalk-stream": "^1.4.1",
+    "dingtalk-stream": "latest",
     "zod": "^4.3.6"
   },
   "devDependencies": {
