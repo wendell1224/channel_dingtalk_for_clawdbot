@@ -183,9 +183,10 @@ export async function handleDingTalkMessage(params: {
 
     // 创建符合 Clawdbot 规范的 dispatcher 对象
     const dispatcher = {
-      dispatch: async (text: string) => {
+      dispatch: async (reply: string | { text: string }) => {
         try {
-          log(`dingtalk: dispatch() called with text: ${typeof text}, value: ${JSON.stringify(text)?.slice(0, 100)}`);
+          const text = typeof reply === 'string' ? reply : reply?.text;
+          log(`dingtalk: dispatch() called with type: ${typeof reply}, text: ${text?.slice(0, 100)}`);
           if (!text) {
             log(`dingtalk: dispatch() received empty text, skipping`);
             return;
@@ -193,7 +194,7 @@ export async function handleDingTalkMessage(params: {
           await sendMessageDingTalk({
             cfg,
             to: ctx.chatId,
-            text: String(text),
+            text,
             useWebhook: true, // 优先使用 webhook
           });
           log(`dingtalk: sent reply to ${ctx.chatId}`);
@@ -201,9 +202,10 @@ export async function handleDingTalkMessage(params: {
           error(`dingtalk: failed to send reply: ${String(err)}`);
         }
       },
-      sendFinalReply: async (text: string) => {
+      sendFinalReply: async (reply: string | { text: string }) => {
         try {
-          log(`dingtalk: sendFinalReply() called with text: ${typeof text}, value: ${JSON.stringify(text)?.slice(0, 100)}`);
+          const text = typeof reply === 'string' ? reply : reply?.text;
+          log(`dingtalk: sendFinalReply() called with type: ${typeof reply}, text: ${text?.slice(0, 100)}`);
           if (!text) {
             log(`dingtalk: sendFinalReply() received empty text, skipping`);
             return;
@@ -211,7 +213,7 @@ export async function handleDingTalkMessage(params: {
           await sendMessageDingTalk({
             cfg,
             to: ctx.chatId,
-            text: String(text),
+            text,
             useWebhook: true,
           });
           log(`dingtalk: sent final reply to ${ctx.chatId}`);
@@ -219,9 +221,10 @@ export async function handleDingTalkMessage(params: {
           error(`dingtalk: failed to send final reply: ${String(err)}`);
         }
       },
-      sendBlockReply: async (text: string) => {
+      sendBlockReply: async (reply: string | { text: string }) => {
         try {
-          log(`dingtalk: sendBlockReply() called with text: ${typeof text}, value: ${JSON.stringify(text)?.slice(0, 100)}`);
+          const text = typeof reply === 'string' ? reply : reply?.text;
+          log(`dingtalk: sendBlockReply() called with type: ${typeof reply}, text: ${text?.slice(0, 100)}`);
           if (!text) {
             log(`dingtalk: sendBlockReply() received empty text, skipping`);
             return;
@@ -229,7 +232,7 @@ export async function handleDingTalkMessage(params: {
           await sendMessageDingTalk({
             cfg,
             to: ctx.chatId,
-            text: String(text),
+            text,
             useWebhook: true,
           });
           log(`dingtalk: sent block reply to ${ctx.chatId}`);
