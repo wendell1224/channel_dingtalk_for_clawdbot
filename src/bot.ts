@@ -181,7 +181,7 @@ export async function handleDingTalkMessage(params: {
     log(`dingtalk: ctxPayload RawBody: ${ctxPayload.RawBody}`);
     log(`dingtalk: ctxPayload CommandBody: ${ctxPayload.CommandBody}`);
 
-    // 创建符合 Clawdbot 规范的 dispatcher 对象
+    // 创建符合 Clawdbot 规范的 dispatcher 对象（完整版）
     const dispatcher = {
       dispatch: async (text: string) => {
         try {
@@ -190,7 +190,7 @@ export async function handleDingTalkMessage(params: {
             cfg,
             to: ctx.chatId,
             text,
-            useWebhook: true, // 优先使用 webhook
+            useWebhook: true,
           });
           log(`dingtalk: sent reply to ${ctx.chatId}`);
         } catch (err) {
@@ -211,17 +211,28 @@ export async function handleDingTalkMessage(params: {
           error(`dingtalk: failed to send final reply: ${String(err)}`);
         }
       },
+      sendBlockReply: async (text: string) => {
+        try {
+          log(`dingtalk: sendBlockReply() called with text length: ${text.length}`);
+          await sendMessageDingTalk({
+            cfg,
+            to: ctx.chatId,
+            text,
+            useWebhook: true,
+          });
+          log(`dingtalk: sent block reply to ${ctx.chatId}`);
+        } catch (err) {
+          error(`dingtalk: failed to send block reply: ${String(err)}`);
+        }
+      },
       getQueuedCounts: () => {
-        // 返回队列中的消息数量（DingTalk 是即时发送，无队列）
         return { pending: 0, final: 0 };
       },
       waitForIdle: async () => {
         log(`dingtalk: waitForIdle() called`);
-        // DingTalk 消息发送是即时的，无需等待
       },
       markIdle: () => {
         log(`dingtalk: markIdle() called`);
-        // 标记为空闲（占位）
       },
     };
 
