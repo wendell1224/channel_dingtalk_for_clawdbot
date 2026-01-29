@@ -7,6 +7,7 @@ import type { ClawdbotConfig, RuntimeEnv, HistoryEntry } from "clawdbot/plugin-s
 import { buildPendingHistoryContextFromMap, DEFAULT_GROUP_HISTORY_LIMIT } from "clawdbot/plugin-sdk";
 import type { DingTalkConfig, DingTalkMessageContext } from "./types.js";
 import { getDingTalkRuntime } from "./runtime.js";
+import { sendMessageDingTalk, storeSessionWebhook } from "./send.js";
 
 // 钉钉 Stream 消息事件类型（基于官方SDK）
 export type DingTalkMessageEvent = {
@@ -21,7 +22,7 @@ export type DingTalkMessageEvent = {
   conversationType: "1" | "2"; // 1=单聊, 2=群聊
   msgId: string;
   atUsers?: Array<{ dingtalkId: string }>;
-  sessionWebhook?: string; // 用于回复的 webhook URL
+  sessionWebhook?: string; // 用于快速回复
 };
 
 function parseDingTalkMessageEvent(event: DingTalkMessageEvent): DingTalkMessageContext {
@@ -40,7 +41,6 @@ function parseDingTalkMessageEvent(event: DingTalkMessageEvent): DingTalkMessage
     mentionedBot,
     content,
     contentType: event.msgtype,
-    sessionWebhook: event.sessionWebhook, // 传递 webhook 用于回复
   };
 }
 
@@ -54,6 +54,11 @@ export async function handleDingTalkMessage(params: {
   const dingtalkCfg = cfg.channels?.dingtalk as DingTalkConfig | undefined;
   const log = runtime?.log ?? console.log;
   const error = runtime?.error ?? console.error;
+
+  // 保存 sessionWebhook 用于快速回复
+  if (event.sessionWebhook) {
+    storeSessionWebhook(event.conversationId, event.sessionWebhook);
+  }
 
   const ctx = parseDingTalkMessageEvent(event);
   const isGroup = ctx.chatType === "group";
@@ -170,19 +175,16 @@ export async function handleDingTalkMessage(params: {
       OriginatingTo: dingtalkTo,
     });
 
-    // 创建回复 dispatcher（使用实际的发送功能）
-    const { sendMessageDingTalk } = await import("./send.js");
-    
+    // 创建实际的 dispatcher（调用真实发送函数）
     const dispatcher = async (text: string) => {
       try {
         await sendMessageDingTalk({
           cfg,
           to: ctx.chatId,
           text,
-          sessionWebhook: ctx.sessionWebhook,
-          atUserIds: isGroup && ctx.senderId ? [ctx.senderId] : [],
+          useWebhook: true, // 优先使用 webhook
         });
-        log(`dingtalk: reply sent to ${ctx.chatId}`);
+        log(`dingtalk: sent reply to ${ctx.chatId}`);
       } catch (err) {
         error(`dingtalk: failed to send reply: ${String(err)}`);
       }

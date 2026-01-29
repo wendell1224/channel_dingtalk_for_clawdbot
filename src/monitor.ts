@@ -1,7 +1,7 @@
 /**
  * DingTalk Stream Monitor
- * 基于官方 dingtalk-stream SDK 的完整实现
- * https://github.com/open-dingtalk/dingtalk-stream-sdk-nodejs
+ * 基于官方 dingtalk-stream SDK 实现
+ * 文档: https://open-dingtalk.github.io/developerpedia/docs/explore/tutorials/stream/bot/nodejs/build-bot/
  */
 
 import type { ClawdbotConfig, RuntimeEnv, HistoryEntry } from "clawdbot/plugin-sdk";
@@ -9,8 +9,8 @@ import type { DingTalkConfig } from "./types.js";
 import { resolveDingTalkCredentials } from "./accounts.js";
 import { handleDingTalkMessage, type DingTalkMessageEvent } from "./bot.js";
 
-// @ts-ignore - dingtalk-stream 可能没有 TypeScript 类型定义
-import { DWClient, DWClientDownStream, TOPIC_ROBOT } from "dingtalk-stream";
+// @ts-ignore - dingtalk-stream may not have types
+import { DWClient, TOPIC_ROBOT } from "dingtalk-stream";
 
 export type MonitorDingTalkOpts = {
   config?: ClawdbotConfig;
@@ -19,7 +19,7 @@ export type MonitorDingTalkOpts = {
   accountId?: string;
 };
 
-let activeClient: any = null;
+let streamClient: any = null;
 
 export async function monitorDingTalkProvider(opts: MonitorDingTalkOpts = {}): Promise<void> {
   const cfg = opts.config;
@@ -43,84 +43,92 @@ export async function monitorDingTalkProvider(opts: MonitorDingTalkOpts = {}): P
 
   try {
     // 创建 DingTalk Stream 客户端
-    const client = new DWClient({
+    streamClient = new DWClient({
       clientId: creds.appKey,
       clientSecret: creds.appSecret,
     });
 
-    activeClient = client;
-
-    // 注册机器人消息回调
-    client.registerCallbackListener(TOPIC_ROBOT, async (res: DWClientDownStream) => {
+    // 注册机器人消息回调监听
+    streamClient.registerCallbackListener(TOPIC_ROBOT, async (res: any) => {
+      const messageId = res.headers?.messageId;
+      
       try {
-        log(`dingtalk: received raw message: ${JSON.stringify(res.data).slice(0, 200)}`);
-
-        const eventData = JSON.parse(res.data);
+        log(`dingtalk: received stream message (messageId: ${messageId})`);
         
-        // 构建标准消息事件
-        const messageEvent: DingTalkMessageEvent = {
-          msgtype: eventData.msgtype || "text",
-          text: eventData.text,
-          senderStaffId: eventData.senderStaffId,
-          senderNick: eventData.senderNick,
-          chatbotUserId: eventData.chatbotUserId,
-          conversationId: eventData.conversationId,
-          conversationType: eventData.conversationType,
-          msgId: eventData.msgId,
-          atUsers: eventData.atUsers,
-          sessionWebhook: eventData.sessionWebhook, // 保存 webhook 用于回复
+        // 解析消息数据
+        const messageData = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+        
+        // 构造 DingTalkMessageEvent
+        const event: DingTalkMessageEvent = {
+          msgtype: messageData.msgtype || "text",
+          text: messageData.text,
+          senderStaffId: messageData.senderStaffId,
+          senderNick: messageData.senderNick,
+          chatbotUserId: messageData.chatbotUserId,
+          conversationId: messageData.conversationId,
+          conversationType: messageData.conversationType || "1",
+          msgId: messageData.msgId || messageId,
+          atUsers: messageData.atUsers || [],
+          sessionWebhook: messageData.sessionWebhook, // 用于回复消息
         };
 
-        // 调用消息处理器
+        log(`dingtalk: processing message from ${event.senderStaffId} in ${event.conversationId}`);
+
+        // 调用消息处理函数
         await handleDingTalkMessage({
           cfg,
-          event: messageEvent,
+          event,
           runtime: opts.runtime,
           chatHistories,
         });
 
-        // 确认消息已处理（避免重复接收）
-        // EventAck 是一个对象，不需要 new
-        client.socketCallBackResponse(res.headers.messageId, {});
+        // 返回成功响应（避免钉钉重复推送）
+        const response = {
+          success: true,
+          timestamp: Date.now(),
+        };
         
-        log(`dingtalk: message ${eventData.msgId} processed successfully`);
+        if (messageId && streamClient.socketCallBackResponse) {
+          streamClient.socketCallBackResponse(messageId, response);
+          log(`dingtalk: sent ack for message ${messageId}`);
+        }
       } catch (err) {
-        error(`dingtalk: failed to process message: ${String(err)}`);
-        // 即使处理失败，也要确认消息（避免无限重试）
-        try {
-          client.socketCallBackResponse(res.headers.messageId, {});
-        } catch (ackErr) {
-          error(`dingtalk: failed to ack message: ${String(ackErr)}`);
+        error(`dingtalk: error processing message ${messageId}: ${String(err)}`);
+        
+        // 即使出错也要回复，避免重试
+        if (messageId && streamClient.socketCallBackResponse) {
+          streamClient.socketCallBackResponse(messageId, {
+            success: false,
+            error: String(err),
+          });
         }
       }
     });
 
     log("dingtalk: connecting to Stream server...");
 
-    // 连接到 DingTalk Stream 服务器
-    await client.connect();
+    // 启动 Stream 连接
+    await streamClient.connect();
 
-    log("dingtalk: ✅ Stream connection established successfully!");
-    log("dingtalk: waiting for messages...");
+    log("dingtalk: Stream client connected successfully");
 
-    // 保持连接直到收到中止信号
-    return new Promise<void>((resolve, reject) => {
-      const handleAbort = () => {
+    // 保持运行直到收到中止信号
+    return new Promise((resolve, reject) => {
+      const handleAbort = async () => {
         log("dingtalk: received abort signal, disconnecting...");
         try {
-          if (activeClient) {
-            activeClient.disconnect?.();
-            activeClient = null;
+          if (streamClient && streamClient.disconnect) {
+            await streamClient.disconnect();
           }
+          streamClient = null;
           log("dingtalk: disconnected successfully");
           resolve();
         } catch (err) {
           error(`dingtalk: error during disconnect: ${String(err)}`);
-          resolve(); // 即使断开失败也要 resolve
+          resolve(); // 仍然 resolve，避免阻塞
         }
       };
 
-      // 监听中止信号
       if (opts.abortSignal?.aborted) {
         handleAbort();
         return;
@@ -128,36 +136,26 @@ export async function monitorDingTalkProvider(opts: MonitorDingTalkOpts = {}): P
 
       opts.abortSignal?.addEventListener("abort", handleAbort, { once: true });
 
-      // 监听客户端错误
-      client.on?.("error", (err: Error) => {
-        error(`dingtalk: client error: ${err.message}`);
-        // 不要 reject，让 Clawdbot 决定是否重启
-      });
+      // 监听连接错误
+      if (streamClient && streamClient.on) {
+        streamClient.on("error", (err: Error) => {
+          error(`dingtalk: Stream client error: ${String(err)}`);
+        });
 
-      // 监听断开连接
-      client.on?.("disconnect", () => {
-        log("dingtalk: client disconnected");
-        if (!opts.abortSignal?.aborted) {
-          // 如果不是主动断开，可能需要重连
-          log("dingtalk: unexpected disconnect, Clawdbot will handle reconnection");
-        }
-        resolve();
-      });
+        streamClient.on("disconnect", () => {
+          log("dingtalk: Stream client disconnected");
+        });
+      }
     });
   } catch (err) {
     error(`dingtalk: failed to initialize Stream client: ${String(err)}`);
-    activeClient = null;
     throw err;
   }
 }
 
 export function stopDingTalkMonitor(): void {
-  if (activeClient) {
-    try {
-      activeClient.disconnect?.();
-      activeClient = null;
-    } catch (err) {
-      console.error(`dingtalk: error stopping monitor: ${String(err)}`);
-    }
+  if (streamClient && streamClient.disconnect) {
+    streamClient.disconnect();
+    streamClient = null;
   }
 }

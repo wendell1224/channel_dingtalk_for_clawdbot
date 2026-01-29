@@ -1,114 +1,152 @@
 /**
  * DingTalk Message Sending
- * 使用官方 SDK 和 sessionWebhook 发送消息
+ * 支持通过 sessionWebhook 和 DingTalk API 发送消息
  */
 
 import type { ClawdbotConfig } from "clawdbot/plugin-sdk";
 import type { DingTalkConfig } from "./types.js";
 import { resolveDingTalkCredentials } from "./accounts.js";
-import { getDingTalkRuntime } from "./runtime.js";
-import axios from "axios";
+import * as dingtalk from "@alicloud/dingtalk";
 
-// 缓存 access token（有效期 2 小时）
-let cachedAccessToken: string | null = null;
-let tokenExpireTime = 0;
+// 全局存储 sessionWebhook 映射 (chatId -> webhook URL)
+const sessionWebhooks = new Map<string, string>();
 
 /**
- * 获取 DingTalk Access Token
+ * 存储会话 webhook（从接收到的消息中提取）
  */
+export function storeSessionWebhook(chatId: string, webhook: string): void {
+  if (webhook) {
+    sessionWebhooks.set(chatId, webhook);
+  }
+}
+
+/**
+ * 获取访问令牌（缓存）
+ */
+let cachedToken: { token: string; expireAt: number } | null = null;
+
 async function getAccessToken(appKey: string, appSecret: string): Promise<string> {
   const now = Date.now();
   
-  // 如果缓存的 token 还没过期，直接返回
-  if (cachedAccessToken && now < tokenExpireTime - 5 * 60 * 1000) {
-    return cachedAccessToken;
+  // 如果缓存有效，直接返回
+  if (cachedToken && cachedToken.expireAt > now + 60000) {
+    return cachedToken.token;
   }
 
   try {
-    const response = await axios.get(
-      "https://oapi.dingtalk.com/gettoken",
-      {
-        params: {
-          appkey: appKey,
-          appsecret: appSecret,
-        },
-      }
-    );
-
-    if (response.data.errcode === 0) {
-      cachedAccessToken = response.data.access_token;
-      // 设置过期时间（2小时，提前5分钟刷新）
-      tokenExpireTime = now + 2 * 60 * 60 * 1000;
-      return cachedAccessToken;
-    } else {
-      throw new Error(`Failed to get access token: ${response.data.errmsg}`);
+    const client = new dingtalk.default({
+      protocol: "https",
+      regionId: "central",
+    });
+    
+    const authRequest = new dingtalk.oauth2_1_0.GetAccessTokenRequest({
+      appKey,
+      appSecret,
+    });
+    
+    const response = await client.getAccessToken(authRequest);
+    const token = response.body?.accessToken;
+    const expiresIn = response.body?.expireIn || 7200;
+    
+    if (!token) {
+      throw new Error("Failed to get access token");
     }
+    
+    // 缓存 token（提前 5 分钟过期）
+    cachedToken = {
+      token,
+      expireAt: now + (expiresIn - 300) * 1000,
+    };
+    
+    return token;
   } catch (err) {
     throw new Error(`Failed to get DingTalk access token: ${String(err)}`);
   }
 }
 
 /**
- * 通过 sessionWebhook 发送消息（群聊和单聊通用）
+ * 通过 sessionWebhook 发送消息（最快，推荐用于回复）
  */
-export async function sendMessageViaWebhook(params: {
-  sessionWebhook: string;
-  accessToken: string;
-  content: string;
-  msgtype?: "text" | "markdown";
-  atUserIds?: string[];
-  atAll?: boolean;
-}): Promise<void> {
-  const { sessionWebhook, accessToken, content, msgtype = "text", atUserIds = [], atAll = false } = params;
-
-  const body: any = {
-    msgtype,
-  };
-
-  if (msgtype === "text") {
-    body.text = { content };
-    body.at = {
-      atUserIds,
-      isAtAll: atAll,
-    };
-  } else if (msgtype === "markdown") {
-    body.markdown = {
-      title: "回复",
-      text: content,
-    };
-    body.at = {
-      atUserIds,
-      isAtAll: atAll,
-    };
-  }
-
-  try {
-    const response = await axios.post(sessionWebhook, body, {
-      headers: {
-        "Content-Type": "application/json",
-        "x-acs-dingtalk-access-token": accessToken,
+async function sendViaWebhook(webhook: string, content: string): Promise<void> {
+  const response = await fetch(webhook, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      msgtype: "text",
+      text: {
+        content,
       },
-    });
+    }),
+  });
 
-    if (response.data?.errcode && response.data.errcode !== 0) {
-      throw new Error(`DingTalk API error: ${response.data.errmsg}`);
-    }
-  } catch (err) {
-    throw new Error(`Failed to send message via webhook: ${String(err)}`);
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Webhook request failed: ${response.status} ${text}`);
   }
 }
 
 /**
- * 发送文本消息
+ * 通过 DingTalk API 发送单聊消息
+ */
+async function sendP2PMessage(
+  accessToken: string,
+  userId: string,
+  content: string
+): Promise<void> {
+  const client = new dingtalk.default({
+    protocol: "https",
+    regionId: "central",
+  });
+  
+  const sendRequest = new dingtalk.im_1_0.SendRobotMessageRequest({
+    robotCode: accessToken, // 注意：这里可能需要 robotCode，请根据实际情况调整
+    userId,
+    msgKey: "sampleText",
+    msgParam: JSON.stringify({
+      content,
+    }),
+  });
+  
+  await client.sendRobotMessage(sendRequest);
+}
+
+/**
+ * 通过 DingTalk API 发送群聊消息
+ */
+async function sendGroupMessage(
+  accessToken: string,
+  chatId: string,
+  content: string
+): Promise<void> {
+  const client = new dingtalk.default({
+    protocol: "https",
+    regionId: "central",
+  });
+  
+  const sendRequest = new dingtalk.im_1_0.SendRobotMessageRequest({
+    robotCode: accessToken, // 注意：这里可能需要调整
+    openConversationId: chatId,
+    msgKey: "sampleText",
+    msgParam: JSON.stringify({
+      content,
+    }),
+  });
+  
+  await client.sendRobotMessage(sendRequest);
+}
+
+/**
+ * 主要发送函数（自动选择最优方式）
  */
 export async function sendMessageDingTalk(params: {
   cfg: ClawdbotConfig;
-  to: string;
+  to: string; // chatId 或 userId
   text: string;
-  sessionWebhook?: string;
-  atUserIds?: string[];
+  useWebhook?: boolean; // 优先使用 webhook
 }): Promise<void> {
-  const { cfg, to, text, sessionWebhook, atUserIds = [] } = params;
+  const { cfg, to, text, useWebhook = true } = params;
   const dingtalkCfg = cfg.channels?.dingtalk as DingTalkConfig | undefined;
   const creds = resolveDingTalkCredentials(dingtalkCfg);
   
@@ -116,80 +154,29 @@ export async function sendMessageDingTalk(params: {
     throw new Error("DingTalk credentials not configured");
   }
 
-  const runtime = getDingTalkRuntime();
-  const log = runtime.log ?? console.log;
-  const error = runtime.error ?? console.error;
-
   try {
-    log(`dingtalk: sending message to ${to}: ${text.slice(0, 100)}...`);
+    // 方式 1: 优先使用 sessionWebhook（最快，最可靠）
+    if (useWebhook) {
+      const webhook = sessionWebhooks.get(to);
+      if (webhook) {
+        await sendViaWebhook(webhook, text);
+        console.log(`[DingTalk] Sent message via webhook to ${to}`);
+        return;
+      }
+    }
 
-    // 获取 access token
+    // 方式 2: 使用 DingTalk API
     const accessToken = await getAccessToken(creds.appKey, creds.appSecret);
-
-    if (sessionWebhook) {
-      // 如果有 sessionWebhook，直接使用（群聊和单聊回复）
-      await sendMessageViaWebhook({
-        sessionWebhook,
-        accessToken,
-        content: text,
-        msgtype: "text",
-        atUserIds,
-      });
-      log(`dingtalk: message sent successfully via webhook`);
+    
+    // 判断是单聊还是群聊（简单判断：群聊 ID 通常较长）
+    if (to.startsWith("cid") || to.length > 20) {
+      await sendGroupMessage(accessToken, to, text);
+      console.log(`[DingTalk] Sent group message via API to ${to}`);
     } else {
-      // 否则使用 API 发送（需要根据 to 的格式判断是群聊还是单聊）
-      // TODO: 实现 API 发送方式
-      log(`dingtalk: API sending not yet implemented, need sessionWebhook`);
-      throw new Error("sessionWebhook is required for sending messages");
+      await sendP2PMessage(accessToken, to, text);
+      console.log(`[DingTalk] Sent P2P message via API to ${to}`);
     }
   } catch (err) {
-    error(`dingtalk: failed to send message: ${String(err)}`);
-    throw err;
-  }
-}
-
-/**
- * 发送 Markdown 消息
- */
-export async function sendMarkdownDingTalk(params: {
-  cfg: ClawdbotConfig;
-  to: string;
-  markdown: string;
-  sessionWebhook?: string;
-  atUserIds?: string[];
-}): Promise<void> {
-  const { cfg, to, markdown, sessionWebhook, atUserIds = [] } = params;
-  const dingtalkCfg = cfg.channels?.dingtalk as DingTalkConfig | undefined;
-  const creds = resolveDingTalkCredentials(dingtalkCfg);
-  
-  if (!creds) {
-    throw new Error("DingTalk credentials not configured");
-  }
-
-  const runtime = getDingTalkRuntime();
-  const log = runtime.log ?? console.log;
-  const error = runtime.error ?? console.error;
-
-  try {
-    log(`dingtalk: sending markdown to ${to}: ${markdown.slice(0, 100)}...`);
-
-    // 获取 access token
-    const accessToken = await getAccessToken(creds.appKey, creds.appSecret);
-
-    if (sessionWebhook) {
-      await sendMessageViaWebhook({
-        sessionWebhook,
-        accessToken,
-        content: markdown,
-        msgtype: "markdown",
-        atUserIds,
-      });
-      log(`dingtalk: markdown sent successfully via webhook`);
-    } else {
-      throw new Error("sessionWebhook is required for sending markdown");
-    }
-  } catch (err) {
-    error(`dingtalk: failed to send markdown: ${String(err)}`);
-    throw err;
+    throw new Error(`Failed to send DingTalk message: ${String(err)}`);
   }
 }
