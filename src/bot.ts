@@ -175,19 +175,27 @@ export async function handleDingTalkMessage(params: {
       OriginatingTo: dingtalkTo,
     });
 
-    // 创建实际的 dispatcher（调用真实发送函数）
-    const dispatcher = async (text: string) => {
-      try {
-        await sendMessageDingTalk({
-          cfg,
-          to: ctx.chatId,
-          text,
-          useWebhook: true, // 优先使用 webhook
-        });
-        log(`dingtalk: sent reply to ${ctx.chatId}`);
-      } catch (err) {
-        error(`dingtalk: failed to send reply: ${String(err)}`);
-      }
+    // 创建符合 Clawdbot 规范的 dispatcher 对象
+    const dispatcher = {
+      dispatch: async (text: string) => {
+        try {
+          await sendMessageDingTalk({
+            cfg,
+            to: ctx.chatId,
+            text,
+            useWebhook: true, // 优先使用 webhook
+          });
+          log(`dingtalk: sent reply to ${ctx.chatId}`);
+        } catch (err) {
+          error(`dingtalk: failed to send reply: ${String(err)}`);
+        }
+      },
+      waitForIdle: async () => {
+        // DingTalk 消息发送是即时的，无需等待
+      },
+      markIdle: () => {
+        // 标记为空闲（占位）
+      },
     };
 
     const replyOptions = {};
