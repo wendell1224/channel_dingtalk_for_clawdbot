@@ -185,11 +185,15 @@ export async function handleDingTalkMessage(params: {
     const dispatcher = {
       dispatch: async (text: string) => {
         try {
-          log(`dingtalk: dispatch() called with text length: ${text?.length}`);
+          log(`dingtalk: dispatch() called with text: ${typeof text}, value: ${JSON.stringify(text)?.slice(0, 100)}`);
+          if (!text) {
+            log(`dingtalk: dispatch() received empty text, skipping`);
+            return;
+          }
           await sendMessageDingTalk({
             cfg,
             to: ctx.chatId,
-            text,
+            text: String(text),
             useWebhook: true, // 优先使用 webhook
           });
           log(`dingtalk: sent reply to ${ctx.chatId}`);
@@ -199,11 +203,15 @@ export async function handleDingTalkMessage(params: {
       },
       sendFinalReply: async (text: string) => {
         try {
-          log(`dingtalk: sendFinalReply() called with text length: ${text?.length}`);
+          log(`dingtalk: sendFinalReply() called with text: ${typeof text}, value: ${JSON.stringify(text)?.slice(0, 100)}`);
+          if (!text) {
+            log(`dingtalk: sendFinalReply() received empty text, skipping`);
+            return;
+          }
           await sendMessageDingTalk({
             cfg,
             to: ctx.chatId,
-            text,
+            text: String(text),
             useWebhook: true,
           });
           log(`dingtalk: sent final reply to ${ctx.chatId}`);
@@ -213,11 +221,15 @@ export async function handleDingTalkMessage(params: {
       },
       sendBlockReply: async (text: string) => {
         try {
-          log(`dingtalk: sendBlockReply() called with text length: ${text?.length}`);
+          log(`dingtalk: sendBlockReply() called with text: ${typeof text}, value: ${JSON.stringify(text)?.slice(0, 100)}`);
+          if (!text) {
+            log(`dingtalk: sendBlockReply() received empty text, skipping`);
+            return;
+          }
           await sendMessageDingTalk({
             cfg,
             to: ctx.chatId,
-            text,
+            text: String(text),
             useWebhook: true,
           });
           log(`dingtalk: sent block reply to ${ctx.chatId}`);

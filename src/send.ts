@@ -23,13 +23,21 @@ export function storeSessionWebhook(chatId: string, webhook: string): void {
  * 通过 sessionWebhook 发送消息（最快，推荐）
  */
 async function sendViaWebhook(webhook: string, content: string): Promise<void> {
+  // 防御性检查：确保 content 是字符串
+  if (!content) {
+    console.warn(`[DingTalk] sendViaWebhook called with empty content`);
+    return;
+  }
+  
+  const contentStr = typeof content === 'string' ? content : String(content);
+  
   console.log(`[DingTalk] Sending to webhook: ${webhook.slice(0, 50)}...`);
-  console.log(`[DingTalk] Message content: ${content.slice(0, 200)}`);
+  console.log(`[DingTalk] Message content: ${contentStr.slice(0, 200)}`);
   
   const payload = {
     msgtype: "text",
     text: {
-      content,
+      content: contentStr,
     },
   };
   
